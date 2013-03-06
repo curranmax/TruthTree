@@ -1,0 +1,61 @@
+V
+P
+K->H
+H->L
+L->M
+
+C
+K->M
+
+A
+Action 1
+Srctree h
+Srce ~(K->M)
+Dtree h
+De K
+Dtree h
+De ~M
+
+Action 2
+Srctree h
+Srce K->H
+Dtree hr
+De ~K
+Dtree hl
+De H
+
+Action 3
+Closedtree hr
+
+Action 4
+Srctree h
+Srce H->L
+Dtree hlr
+De ~H
+Dtree hll
+De L
+
+Action 5
+Srctree h
+Srce L->M
+Dtree hlrr
+De ~L
+Dtree hlrl
+De M
+Dtree hllr
+De ~L
+Dtree hlll
+De M
+
+Action 6
+Closedtree hlrr
+
+Action 7
+Closedtree hlrl
+
+Action 8
+Closedtree hllr
+
+Action 9
+Closedtree hlll
+

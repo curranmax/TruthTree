@@ -1,0 +1,492 @@
+
+#This started as a way to solve the problem on hw2 with the A's B's and C's and axioms which is why constants  is the way it is
+#It stores the constants such as unicode of the operators and simple representation fo the operators in one central place
+#I know this is not the best way to do this, but it is the way that emerged
+class Constants:
+	#This was specifically for the hw problem, because my intial script was wrong, so I thought I needed to expand to four values
+	def __init__(self,nvals,startchar='A'):
+		self.vals=[]
+		for i in range(nvals):
+			self.vals.append(startchar)
+			startchar=chr(ord(startchar)+1)
+		numpos=int(nvals+nvals*(nvals+1)/2)
+		self.rs=[self.vals[0]]*(numpos)
+		self.debug=False
+		self.intial=True
+
+	#Not used in the truth tree, but used in the Truth table
+	def getNegationVal(self,v):
+		return self.rs[self.vals.index(v)]
+
+	def getConjunctionVal(self,v1,v2):
+		i1=self.vals.index(v1)
+		i2=self.vals.index(v2)
+		if i1>i2:
+			t=i1
+			i1=i2
+			i2=t
+		return self.rs[len(self.vals)+i1*(i1+1)/2+i2]
+
+	#Shorthand because the values are only stored for negation and conjunction and the others are computed using the equivalnce rules
+	def getDisjunctionVal(self,v1,v2):
+		return self.getNegationVal(self.getConjunctionVal(self.getNegationVal(v1),self.getNegationVal(v2)))
+
+	#This is also for the hw
+	#True if this is the last increment
+	def incrementDefinedVals(self):
+		for i,v in enumerate(self.rs):
+			i1=self.vals.index(v)
+			if i1==len(self.vals)-1:
+				self.rs[i]=self.vals[0]
+			else:
+				self.rs[i]=self.vals[i1+1]
+				return False
+		return True
+
+	#Dictionary of the unicode operators, used for outputing to the command line
+	def getUnicodeOperators(self):
+		return {"Negation":self.getUnicodeNegationOperator(),"Conjunction":self.getUnicodeConjunctionOperator(),"Disjunction":self.getUnicodeDisjunctionOperator(),"Conditional":self.getUnicodeConditionalOperator(),"BiConditional":self.getUnicodeBiConditionalOperator()}
+
+	#Dictionary of the simple operators, used with the files
+	def getSimpleOperators(self):
+		return {"Negation":self.getSimpleNegationOperator(),"Conjunction":self.getSimpleConjunctionOperator(),"Disjunction":self.getSimpleDisjunctionOperator(),"Conditional":self.getSimpleConditionalOperator(),"BiConditional":self.getSimpleBiConditionalOperator()}
+
+	#List for the logic reader
+	def getSimpleUnaryOperators(self):
+		return [self.getSimpleNegationOperator()]
+
+	def getSimpleBinaryOperators(self):
+		return [self.getSimpleConjunctionOperator(),self.getSimpleDisjunctionOperator(),self.getSimpleConditionalOperator(),self.getSimpleBiConditionalOperator()]
+
+	#Actual values for the operators
+	#Stored here, so it is centralized instead of in the classes themselves
+	def getUnicodeNegationOperator(self):
+		return u"\u00AC"
+
+	def getUnicodeConjunctionOperator(self):
+		return u" \u2227 "
+
+	def getUnicodeDisjunctionOperator(self):
+		return u" \u2228 "
+
+	def getUnicodeConditionalOperator(self):
+		return u"\u2192 "
+
+	def getUnicodeBiConditionalOperator(self):
+		return u"\u2194 "
+
+	def getUnicodeUniversalOperator(self):
+		return u"\u2200"
+
+	def getUnicodeExistentialOperator(self):
+		return u"\u2203"
+
+	def getSimpleNegationOperator(self):
+		return "~"
+
+	def getSimpleConjunctionOperator(self):
+		return "&"
+
+	def getSimpleDisjunctionOperator(self):
+		return "|"
+
+	def getSimpleConditionalOperator(self):
+		return "->"
+
+	def getSimpleBiConditionalOperator(self):
+		return "<->"
+
+	#Also for the hw question
+	#Returns True if the Double Negation Equivalence is True
+	def checkNegation(self):
+		skip=True
+		test=Atom()
+		testnegation=Negation(Negation(test))
+		while True:
+			if test.evaluate()!=testnegation.evaluate():
+				skip=False
+				break
+			t=test.nextVal()
+			if t:
+				break
+		return skip
+
+	#Returns the default value, used in the truth tree
+	def getDefaultValue(self):
+		return self.vals[0]
+
+	#Returns the next value, used in the truth tree, alsoe the first part of the tuple means if it looped through all the values
+	def getNextValue(self,v):
+		ind=self.vals.index(v)
+		if ind==len(self.vals)-1:
+			return (True,self.vals[0])
+		else:
+			return (False,self.vals[ind+1])
+
+	#for the hw as well
+	#True if this is the last increment
+	def incrementToNextValid(self):
+		while True:
+			if not self.intial:
+				r=self.incrementDefinedVals()
+				if r:
+					return True
+			else:
+				self.intial=False
+			if self.checkNegation():
+				return False
+
+#Defined for our system of logic
+#overwrites the functions which were useful in the hw question but pointless when dealing with Trues and Falses
+class TrueFalseConstants(Constants):
+	def __init__(self):
+		self.vals=['T','F']
+		self.rs=['F','T','T','F','F','F']
+
+	def incrementToNextValid(self):
+		return True
+
+	def checkNegation(self):
+		return True
+
+	def incrementDefinedVals(self):
+		return True
+
+#Each class represents a type of expression
+#There is no parent class, because I found no need for that
+#The inner notation of the classes are not standard, notably Conjunction uses expr1 and expr2 while Disjunction, Conditional and Biconditional use ex1 and ex2
+#Try and avoid using Conjunction and Disjunction and instead used the Generalized versions
+#The Parent structure is not used as of now, but is correctly set up.
+#Can use getOperator() function for any expression to figure out what type of expression something is
+#equals() is just simple equality, no equivalence rules are used
+#  Expr1  |  Expr2  | Expr1.equals(Expr2)
+# ----------------------------------------
+#   A&B   |   B&A   |      True
+#   A|B   |   B|A   |      True
+#  A<->B  |  B<->A  |      True
+#   A->B  |   B->A  |      False
+#   A->B  |  ~A|B   |      False
+#   ~~A   |    A    |      False
+
+#I commented Negation Generalized Conjunction and Atom, becuase the others are basically all the same
+class Negation:
+	def __init__(self,ex):
+		self.expr=ex
+		self.parent=None
+		self.expr.parent=self
+
+	#Evaluation for the truth tree
+	def evaluate(self):
+		exval=self.expr.evaluate()
+		return con.getNegationVal(exval)
+
+	#Gets a string representation of expression.  Correctly does parenthesis wrapping
+	#Setting simp to True uses the simple operator, this is needed for outputing to a file
+	def toString(self,simp=False):
+		op,cp=getParens(self.expr.getOperator(simp),self.getOperator(simp))
+		return self.getOperator(simp)+op+self.expr.toString(simp=simp)+cp
+
+	#Returns the operator
+	#used to check what type of expression an object is and for outputing
+	#setting simp to true returns the simple operator
+	def getOperator(self,simp=False):
+		if simp:
+			return con.getSimpleNegationOperator()
+		return con.getUnicodeNegationOperator()
+
+	#Checks equality
+	def equals(self,ex):
+		if ex.getOperator()==self.getOperator():
+			return self.expr.equals(ex.expr)
+		return False
+
+	def isGeneralized(self):
+		return False
+
+class Conjunction:
+	def __init__(self,ex1,ex2):
+		self.expr1=ex1
+		self.expr2=ex2
+		self.parent=None
+		self.expr1.parent=self
+		self.expr2.parent=self
+
+	def evaluate(self):
+		exval1=self.expr1.evaluate()
+		exval2=self.expr2.evaluate()
+		return con.getConjunctionVal(exval1,exval2)
+
+	def toString(self,simp=False):
+		op1,cp1=getParens(self.expr1.getOperator(simp),self.getOperator(simp))
+		op2,cp2=getParens(self.expr2.getOperator(simp),self.getOperator(simp))
+		return op1+self.expr1.toString(simp=simp)+cp1+self.getOperator(simp)+op2+self.expr2.toString(simp=simp)+cp2
+
+	def getOperator(self,simp=False):
+		if simp:
+			return con.getSimpleConjunctionOperator()
+		return con.getUnicodeConjunctionOperator()
+
+	def equals(self,ex):
+		if ex.getOperator()==self.getOperator():
+			return (self.expr1.equals(ex.expr1) and self.expr2.equals(ex.expr2)) or (self.expr1.equals(ex.expr2) and self.expr2.equals(ex.expr1))
+		return False
+
+	def isGeneralized(self):
+		return False
+
+#The Generalized versions store a list of expressions
+class GeneralizedConjunction:
+	def __init__(self,exs):
+		self.exs=[]
+		self.parent=None
+		#Makes sure that none of the expressions are Conjunctions themselves
+		while True:
+			addAll=True
+			for e in self.exs:
+				if e.getOperator()==self.getOperator():
+					self.exs.remove(e)
+					if e.isGeneralized():
+						self.ex+=e.exs
+					else:
+						self.exs.append(e.expr1)
+						self.exs.append(e.expr2)
+					addAll=False
+					break
+			if addAll:
+				break
+		for e in exs:
+			e.parent=self
+			self.exs.append(e)
+
+	def evaluate(self):
+		val=con.getDefaultValue()
+		for e in self.exs:
+			val=con.getConjunctionVal(val,e.evaluate())
+		return val
+
+	def toString(self,simp=False):
+		s=""
+		for e in self.exs:
+			op,cp=getParens(e.getOperator(simp),self.getOperator(simp))
+			s+=op+e.toString(simp=simp)+cp+self.getOperator(simp)
+		return s[:-len(self.getOperator(simp))]
+
+	def getOperator(self,simp=False):
+		if simp:
+			return con.getSimpleConjunctionOperator()
+		return con.getUnicodeConjunctionOperator()
+
+	def isGeneralized(self):
+		return True
+
+	#Makes sure there is a one to one relationship between the two generalized conjunctions
+	#there is probably a better way to do this, i think
+	def equals(self,ex):
+		if ex.getOperator()==self.getOperator() and ex.isGeneralized():
+			if len(self.exs)!=len(ex.exs):
+				return False
+			inds=[]
+			for se in self.exs:
+				one=False
+				for i,oe in enumerate(ex.exs):
+					if se.equals(oe) and not(i in inds):
+						one=True
+						inds.append(i)
+						break
+				if not one:
+					return False
+			return True
+		return False
+
+class Disjunction:
+	def __init__(self,ex1,ex2):
+		self.expr=Negation(Conjunction(Negation(ex1),Negation(ex2)))
+		self.ex1=ex1
+		self.ex2=ex2
+		self.parent=None
+		self.ex1.parent=self
+		self.ex2.parent=self
+
+	def evaluate(self):
+		return self.expr.evaluate()
+
+	def toString(self,simp=False):
+		op1,cp1=getParens(self.ex1.getOperator(simp),self.getOperator(simp))
+		op2,cp2=getParens(self.ex2.getOperator(simp),self.getOperator(simp))
+		return op1+self.ex1.toString(simp=simp)+cp1+self.getOperator(simp)+op2+self.ex2.toString(simp=simp)+cp2
+
+	def getOperator(self,simp=False):
+		if simp:
+			return con.getSimpleDisjunctionOperator()
+		return con.getUnicodeDisjunctionOperator()
+
+	def equals(self,ex):
+		if ex.getOperator()==self.getOperator():
+			return (self.ex1.equals(ex.ex1) and self.ex2.equals(ex.ex2)) or (self.ex1.equals(ex.ex2) and self.ex2.equals(ex.ex1))
+		return False
+
+	def isGeneralized(self):
+		return False
+
+class GeneralizedDisjunction:
+	def __init__(self,exs):
+		self.exs=[]
+		self.parent=None
+		while True:
+			addAll=True
+			for e in exs:
+				if e.getOperator()==self.getOperator():
+					exs.remove(e)
+					exs.append(e.ex1)
+					exs.append(e.ex2)
+					addAll=False
+					break
+			if addAll:
+				break
+
+		for e in exs:
+			e.parent=self
+			self.exs.append(e)
+
+	def evaluate(self):
+		val=con.getNegationVal(con.getDefaultValue())
+		for e in self.exs:
+			val=con.getDisjunctionVal(val,e.evaluate())
+		return val
+
+	def toString(self,simp=False):
+		s=""
+		for e in self.exs:
+			op,cp=getParens(e.getOperator(simp),self.getOperator(simp))
+			s+=op+e.toString(simp=simp)+cp+self.getOperator(simp)
+		return s[:-len(self.getOperator(simp))]
+
+	def getOperator(self,simp=False):
+		if simp:
+			return con.getSimpleDisjunctionOperator()
+		return con.getUnicodeDisjunctionOperator()
+
+	def isGeneralized(self):
+		return True
+
+	def equals(self,ex):
+		if ex.getOperator()==self.getOperator() and ex.isGeneralized():
+			if len(self.exs)!=len(ex.exs):
+				return False
+			inds=[]
+			for se in self.exs:
+				one=False
+				for i,oe in enumerate(ex.exs):
+					if se.equals(oe) and not(i in inds):
+						one=True
+						inds.append(i)
+						break
+				if not one:
+					return False
+			return True
+		return False
+
+class Conditional:
+	def __init__(self,ex1,ex2):
+		self.expr=Negation(Conjunction(ex1,Negation(ex2)))
+		self.ex1=ex1
+		self.ex2=ex2
+		self.parent=None
+		self.ex1.parent=self
+		self.ex2.parent=self
+
+	def evaluate(self):
+		return self.expr.evaluate()
+
+	def toString(self,simp=False):
+		op1,cp1=getParens(self.ex1.getOperator(simp))
+		op2,cp2=getParens(self.ex2.getOperator(simp))
+		return op1+self.ex1.toString(simp=simp)+cp1+self.getOperator(simp)+op2+self.ex2.toString(simp=simp)+cp2
+
+	def getOperator(self,simp=False):
+		if simp:
+			return con.getSimpleConditionalOperator()
+		return con.getUnicodeConditionalOperator()
+
+	def equals(self,ex):
+		if ex.getOperator()==self.getOperator():
+			return (self.ex1.equals(ex.ex1) and self.ex2.equals(ex.ex2))
+		return False
+
+	def isGeneralized(self):
+		return False
+
+class Biconditional:
+	def __init__(self,ex1,ex2):
+		self.expr=Conjunction(Conditional(ex1,ex2),Conditional(ex2,ex1))
+		self.ex1=ex1
+		self.ex2=ex2
+		self.parent=None
+		self.ex1.parent=self
+		self.ex2.parent=self
+
+	def evaluate(self):
+		return self.expr.evaluate()
+
+	def toString(self,simp=False):
+		op1,cp1=getParens(self.ex1.getOperator(simp))
+		op2,cp2=getParens(self.ex2.getOperator(simp))
+		return op1+self.ex1.toString(simp=simp)+cp1+self.getOperator(simp)+op2+self.ex2.toString(simp=simp)+cp2
+
+	def getOperator(self,simp=False):
+		if simp:
+			return con.getSimpleBiConditionalOperator()
+		return con.getUnicodeBiConditionalOperator()
+
+	def equals(self,ex):
+		if ex.getOperator()==self.getOperator():
+			return (self.ex1.equals(ex.ex1) and self.ex2.equals(ex.ex2)) or (self.ex1.equals(ex.ex2) and self.ex2.equals(ex.ex1))
+		return False
+
+	def isGeneralized(self):
+		return False
+
+#Atoms is special because its equality is based on pointers, thus two Atoms are the same only if they are the same pointer
+#The pointer is form the truthtable
+class Atom:
+	def __init__(self,name):
+		self.val=con.getDefaultValue()
+		self.name=name
+
+	def evaluate(self):
+		return self.val
+
+	def getOperator(self,simp=False):
+		return ""
+
+	#Used by truthtable
+	#true if looped back
+	def nextVal(self):
+		(rv,nv)=con.getNextValue(self.val)
+		self.val=nv
+		return rv
+
+	#Truthtable
+	def reset(self):
+		self.val=con.getDefaultValue()
+
+	def toString(self,simp=False):
+		return self.name
+
+	#Needs to be the same pointer
+	def equals(self,ex):
+		if ex.getOperator()==self.getOperator():
+			return self==ex
+		return False
+
+	def isGeneralized(self):
+		return False
+
+#Instance of the Constants that is referenced in other scripts
+con=TrueFalseConstants()
+
+#Figures out the parens issue
+def getParens(childop,selfop=None):
+	if childop==con.getUnicodeNegationOperator() or childop=='' or childop==selfop:
+		return ('','')
+	return ('(',')')
