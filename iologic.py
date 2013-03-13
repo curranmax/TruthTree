@@ -19,9 +19,11 @@ class LogicReader:
 	def __init__(self,fname,constructors=None,atoms=[]):
 		self.atoms=atoms
 		self.expressions=[]
+		self.unboundconstants=[]
+		self.boundencounetered=[]
 		if constructors==None:
 			#Default constructor
-			self.constructors={"Conjunction":GeneralizedConjunction,"Negation":Negation,"Disjunction":GeneralizedDisjunction,"Conditional":Conditional,"Biconditional":Biconditional,"Atom":Atom}
+			self.constructors={"Conjunction":GeneralizedConjunction,"Negation":Negation,"Disjunction":GeneralizedDisjunction,"Conditional":Conditional,"Biconditional":Biconditional,"Atom":Atom,"FOAtom":FOAtom,"UnBoundConstant":UnBoundConstant,"BoundConstant":BoundConstant,"Universal":Universal,"Existential":Existential}
 		else:
 			self.constructors=constructors
 		#Parses each line into an expression by calling findExpression on each line
@@ -30,11 +32,11 @@ class LogicReader:
 			expr=line
 			if expr=="\n":
 				break
-			self.expressions.append(self.findExpression(expr))
+			self.expressions.append(self.findExpression(expr,[]))
 		f.close()
 
 	#Parses a string into an expression, ensuring that atoms are shared
-	def findExpression(self,expression):
+	def findExpression(self,expression,bound):
 		#gets rid of any whitespace
 		nspace=expression.split()
 		expression=""
@@ -45,7 +47,7 @@ class LogicReader:
 			raise IOError('Invalid Input File')
 		expr=None
 		#Determine if Atom
-		atom=self.isAtom(expression)
+		atom=self.isAtom(expression,bound)
 		if atom!=None:
 			return atom
 
@@ -56,12 +58,16 @@ class LogicReader:
 
 		#Just removed Parenthesises
 		if o=='(':
-			expr=self.findExpression(split[0])
+			expr=self.findExpression(split[0],bound)
 
-
-		#Negation
 		if o=='~':
-			expr=self.constructors["Negation"](self.findExpression(split[0]))
+			expr=self.constructors["Negation"](self.findExpression(split[0],bound))
+		if o=='@':
+			(uv,restexpr)=self.getVariable(split[0],bound)
+			expr=self.constructors["Universal"](self.findExpression(restexpr,bound+[uv]),uv)
+		if o=='#':
+			(uv,restexpr)=self.getVariable(split[0],bound)
+			expr=self.constructors["Existential"](self.findExpression(restexpr,bound+[uv]),uv)
 
 		if o=='&':
 			exs=[]
@@ -74,20 +80,33 @@ class LogicReader:
 				exs.append(self.findExpression(s))
 			expr=self.constructors["Disjunction"](exs)
 		if o=='->':
-			expr=self.constructors["Conditional"](self.findExpression(split[0]),self.findExpression(split[1]))
+			expr=self.constructors["Conditional"](self.findExpression(split[0],bound),self.findExpression(split[1],bound))
 		if o=='<->':
-			expr=self.constructors["Biconditional"](self.findExpression(split[0]),self.findExpression(split[1]))
+			expr=self.constructors["Biconditional"](self.findExpression(split[0],bound),self.findExpression(split[1],bound))
 		return expr
 
 	#Determines if it is an atom
 	#Currently it just needs to be only capitol letters
-	def isAtom(self,expression):
-		for c in expression:
+	def isAtom(self,expression,bound):
+		fo=False
+		for i,c in enumerate(expression):
+			if c=='(':
+				fo=True
+				break
 			if not(c>="A" and c<="Z"):
 				return None
-
-		a=self.getAtom(expression)
-		return a
+		if not fo:
+			a=self.getAtom(expression)
+			return self.constructors["FOAtom"](a,[])
+		a=self.getAtom(expression[:i])
+		stringcon=expression[i+1:-1].split(',')
+		cons=[]
+		for poscon in stringcon:
+			pc=self.getConstant(poscon,bound)
+			if pc==None:
+				return None
+			cons.append(pc)
+		return self.constructors["FOAtom"](a,cons)
 
 	#Finds the atom with the same name
 	#If none exists then a new atom is made
@@ -99,6 +118,35 @@ class LogicReader:
 		self.atoms.append(a)
 		return a
 
+	def getConstant(self,scon,bound,make=True):
+		for c in scon:
+			if not(c>="a" and c<="z"):
+				return None
+		for c in bound:
+			if c.name==scon:
+				return c
+		for c in self.unboundconstants:
+			if c.name==scon:
+				return c
+		if make:
+			for b in self.boundencounetered:
+				if b==scon:
+					raise IOError("Variable encountered already in different scope")
+			uc=self.constructors["UnBoundConstant"](scon)
+			self.unboundconstants.append(uc)
+			return uc
+		else:
+			return None
+
+	def getVariable(self,e,bound):
+		for i,c in enumerate(e):
+			if not(c>="a" and c<="z"):
+				break
+		if self.getConstant(e[:i],bound,make=False)!=None:
+			raise IOError("Variable Already Bound")
+		self.boundencounetered.append(e[:i])
+		return (self.constructors["BoundConstant"](e[:i]),e[i:])
+	
 	#splits the expression on the outermnost operator and returns the subexpressions and operator
 	#returns a tuple
 	#	The first value is a string of the operator
@@ -172,3 +220,9 @@ class LogicString(LogicReader):
 
 	def parseString(self,string):
 		return self.findExpression(string)
+
+r=LogicReader('logictest.txt')
+
+for e in r.expressions:
+	print e.toString()
+

@@ -1,7 +1,7 @@
-K->H
+@xP(x)->#yP(y)
 H->L
 L->M
-K->M
+K(a,b,c)->H
 
 ~(A<->B)
 ~A

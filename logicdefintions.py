@@ -49,11 +49,11 @@ class Constants:
 
 	#Dictionary of the simple operators, used with the files
 	def getSimpleOperators(self):
-		return {"Negation":self.getSimpleNegationOperator(),"Conjunction":self.getSimpleConjunctionOperator(),"Disjunction":self.getSimpleDisjunctionOperator(),"Conditional":self.getSimpleConditionalOperator(),"BiConditional":self.getSimpleBiConditionalOperator()}
+		return {"Negation":self.getSimpleNegationOperator(),"Conjunction":self.getSimpleConjunctionOperator(),"Disjunction":self.getSimpleDisjunctionOperator(),"Conditional":self.getSimpleConditionalOperator(),"BiConditional":self.getSimpleBiConditionalOperator(),"Universal":self.getSimpleUniversalOperator(),"Existential":self.getSimpleExistentialOperator()}
 
 	#List for the logic reader
 	def getSimpleUnaryOperators(self):
-		return [self.getSimpleNegationOperator()]
+		return [self.getSimpleNegationOperator(),self.getSimpleUniversalOperator(),self.getSimpleExistentialOperator()]
 
 	def getSimpleBinaryOperators(self):
 		return [self.getSimpleConjunctionOperator(),self.getSimpleDisjunctionOperator(),self.getSimpleConditionalOperator(),self.getSimpleBiConditionalOperator()]
@@ -95,6 +95,12 @@ class Constants:
 
 	def getSimpleBiConditionalOperator(self):
 		return "<->"
+
+	def getSimpleUniversalOperator(self):
+		return "@"
+
+	def getSimpleExistentialOperator(self):
+		return "#"
 
 	#Also for the hw question
 	#Returns True if the Double Negation Equivalence is True
@@ -446,6 +452,56 @@ class Biconditional:
 	def isGeneralized(self):
 		return False
 
+class Universal:
+	def __init__(self,ex,bcon):
+		if not bcon.isBound():
+			raise Exception('Unbound constant supplied to Universal')
+		ex.parexpr=self
+		self.expr=ex
+		self.con=bcon
+
+	def getOperator(self,simp=False):
+		if simp:
+			return con.getSimpleUniversalOperator()
+		return con.getUnicodeUniversalOperator()
+
+	def toString(self,simp=False):
+		op,cp=getParens(self.expr.getOperator(simp),self.getOperator(simp))
+		return self.getOperator(simp)+self.con.toString()+op+self.expr.toString(simp=simp)+cp
+
+	def equals(self,ex):
+		if ex.getOperator()==self.getOperator():
+			return self.expr.equals(self.ex) and self.con.equals(ex.con)
+		return False
+
+	def isGeneralized(self):
+		return False
+
+class Existential:
+	def __init__(self,ex,bcon):
+		if not bcon.isBound():
+			raise Exception('Unbound constant supplied to Universal')
+		ex.parexpr=self
+		self.expr=ex
+		self.con=bcon
+
+	def getOperator(self,simp=False):
+		if simp:
+			return con.getSimpleExistentialOperator()
+		return con.getUnicodeExistentialOperator()
+
+	def toString(self,simp=False):
+		op,cp=getParens(self.expr.getOperator(simp),self.getOperator(simp))
+		return self.getOperator(simp)+self.con.toString()+op+self.expr.toString(simp=simp)+cp
+
+	def equals(self,ex):
+		if ex.getOperator()==self.getOperator():
+			return self.expr.equals(self.ex) and self.con.equals(ex.con)
+		return False
+
+	def isGeneralized(self):
+		return False
+
 #Atoms is special because its equality is based on pointers, thus two Atoms are the same only if they are the same pointer
 #The pointer is form the truthtable
 class Atom:
@@ -475,11 +531,104 @@ class Atom:
 
 	#Needs to be the same pointer
 	def equals(self,ex):
-		if ex.getOperator()==self.getOperator():
-			return self==ex
+		if ex.getOperator()==self.getOperator() and self==ex:
+			return True
+		try:
+			if ex.numcons==0 and ex.atom.equals(self):
+				return True
+		except Exception, e:
+			pass
 		return False
 
 	def isGeneralized(self):
+		return False
+
+class FOAtom:
+	def __init__(self,atom,vs):
+		self.atom=atom
+		self.numcons=len(vs)
+		self.val=con.getDefaultValue()
+		self.vs=vs
+		for v in self.vs:
+			v.childatoms.append(self)
+
+	def evaluate(self):
+		if self.numcons>0:
+			raise Exception('First Order Atoms do not have truth values')
+		return self.val
+
+	def nextVal(self):
+		if self.numcons>0:
+			raise Exception('First Order Atoms do not have truth values')
+		(rv,nv)=con.getNextValue(self.val)
+		self.val=nv
+		return rv
+
+	def reset(self):
+		if self.numcons>0:
+			raise Exception('First Order Atoms do not have truth values')
+		self.val=con.getDefaultValue()
+
+	def getOperator(self,simp=False):
+		return ""
+
+	def toString(self,simp=False):
+		s=self.atom.toString()
+		if self.numcons==0:
+			return s
+		s+='('
+		for v in self.vs:
+			s+=v.toString()+","
+		return s[:-1]+")"
+
+	def equals(self,ex):
+		#incase not a FOAtom
+		try:
+			if self.atom.equals(ex.atom):
+				if self.numcons!=ex.numcons:
+					return False
+				#Order matters
+				for i,v in enumerate(self.vs):
+					if not v.equals(ex.vs[i]):
+						return False
+				return True
+			return False
+		except Exception, e:
+			if self.numcons==0 and self.atom.equals(ex):
+				return True
+			return False
+
+	def isGeneralized(self):
+		return False
+
+class BoundConstant:
+	def __init__(self,name):
+		self.name=name
+		self.parexpr=None
+		self.childatoms=[]
+
+	def toString(self,simp=False):
+		return self.name
+
+	def equals(self,con):
+		return self==con
+
+	def isBound(self):
+		return True
+
+class UnBoundConstant:
+	def __init__(self,name):
+		self.name=name
+		self.parexpr=None
+		self.childatoms=[]
+
+	def toString(self,simp=False):
+		return self.name
+
+	def equals(self,con):
+		return self==con
+
+	def isBound(self):
 		return False
 
 #Instance of the Constants that is referenced in other scripts
@@ -487,6 +636,17 @@ con=TrueFalseConstants()
 
 #Figures out the parens issue
 def getParens(childop,selfop=None):
-	if childop==con.getUnicodeNegationOperator() or childop=='' or childop==selfop:
+	if childop==con.getSimpleNegationOperator() or childop==con.getUnicodeNegationOperator() or childop=='' or childop==selfop or childop==con.getSimpleExistentialOperator() or childop==con.getUnicodeExistentialOperator() or childop==con.getSimpleUniversalOperator() or childop==con.getUnicodeUniversalOperator():
 		return ('','')
 	return ('(',')')
+
+y=BoundConstant('y')
+x=BoundConstant('x')
+P=FOAtom(Atom('P'),[x])
+Q=FOAtom(Atom('Q'),[x])
+
+u=Universal(Conditional(P,Q),x)
+v=Universal(Conditional(Q,P),x)
+pq=Conditional(u,v)
+
+#print pq.toString()
