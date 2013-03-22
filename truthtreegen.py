@@ -1,6 +1,5 @@
 from truthtree import *
 
-
 class ExpressionGenTT(ExpressionTT):
 	def __init__(self):
 		self.opnum=0
@@ -60,10 +59,20 @@ class NegationGenTT(NegationTT,ExpressionGenTT):
 					if len(self.expr.exs)==2:
 						return [[NegationGenTT(self.expr.exs[0])],[NegationGenTT(self.expr.exs[1])]]
 					else:
-						if addoptions==None:
+						if addoptions==None or len(addoptions)==0 or len(addoptions)==len(self.expr.exs):
 							raise Exception('Need addtional option needed')
 						else:
-							return [[NegationGenTT(self.expr.exs[addoptions])],[NegationGenTT(GeneralizedConjunctionTT(self.expr.exs[:addoptions]+self.expr.exs[addoptions+1:]))]]
+							llist=[self.expr.exs[i] for i in addoptions]
+							rlist=[self.expr.exs[i] for i in range(len(self.expr.exs)) if not(i in addoptions)]
+							if len(llist)>1:
+								lr=[NegationGenTT(GeneralizedConjunctionGenTT(llist))]
+							else:
+								lr=[NegationGenTT(llist[0])]
+							if len(rlist)>1:
+								rr=[NegationGenTT(GeneralizedConjunctionGenTT(rlist))]
+							else:
+								rr=[NegationGenTT(rlist[0])]
+							return [lr,rr]
 				else:
 					return [[NegationGenTT(self.expr.expr1)],[NegationGenTT(self.expr.expr2)]]
 
@@ -85,7 +94,7 @@ class NegationGenTT(NegationTT,ExpressionGenTT):
 
 	def getPossibleSplits(self,ten=False):
 		if self.expr.getOperator()==operators['Conjunction'] and self.expr.isGeneralized() and len(self.expr.exs)>2:
-			return [i for i in range(len(self.expr.exs))]
+			return [[i] for i in range(len(self.expr.exs))]
 		return [None]
 
 class ConjunctionGenTT(ConjunctionTT,ExpressionGenTT):
@@ -121,15 +130,25 @@ class GeneralizedDisjunctionGenTT(GeneralizedDisjunctionTT,ExpressionGenTT):
 		if len(self.exs)==2:
 			return [[self.exs[0]],[self.exs[1]]]
 		else:
-			if addoptions==None:
+			if addoptions==None or len(addoptions)==0 or len(addoptions)==len(self.exs):
 				raise Exception('Additional Options Needed')
 			else:
-				return [[self.exs[addoptions]],[GeneralizedDisjunctionGenTT(self.exs[:addoptions]+self.exs[addoptions+1:])]]
+				llist=[self.exs[i] for i in addoptions]
+				rlist=[self.exs[i] for i in range(len(self.exs)) if not(i in addoptions)]
+				if len(llist)>1:
+					lr=[GeneralizedDisjunctionGenTT(llist)]
+				else:
+					lr=llist
+				if len(rlist)>1:
+					rr=[GeneralizedDisjunctionGenTT(rlist)]
+				else:
+					rr=rlist
+				return [lr,rr]
 
 	def getPossibleSplits(self,ten=False):
 		if len(self.exs)==2:
 			return [None]
-		return [i for i in range(len(self.exs))]
+		return [[i] for i in range(len(self.exs))]
 
 class ConditionalGenTT(ConditionalTT,ExpressionGenTT):
 	def __init__(self,ex1,ex2):
@@ -152,6 +171,7 @@ class UniversalGenTT(UniversalTT,ExpressionGenTT):
 		UniversalTT.__init__(self,ex,bcon)
 		ExpressionGenTT.__init__(self)
 		self.usedcons=[]
+		self.opnums=[]
 		self.tencons=[]
 
 	def ttevaluate(self,ten=False,addoptions=None):
@@ -159,37 +179,23 @@ class UniversalGenTT(UniversalTT,ExpressionGenTT):
 		if ten:
 			self.tencons.append(addoptions)
 			if len(t.tenunboundconstants+t.unboundconstants)==0:
-				t.tenunboundconstants.append(addoptions)
+				self.treesrc.addUnboundConstants(addoptions,ten)
 		else:
 			self.usedcons.append(addoptions)
 			if len(t.unboundconstants)==0:
-				t.unboundconstants.append(addoptions)
+				self.treesrc.addUnboundConstants(addoptions,ten)
 		return [[self.replaceBound(addoptions)]]
 
 	def doneSplitting(self,ten=False):
-		if ten:
-			if self.tensplit:
-				return True
-		else:
-			if self.split:
-				return True
-		uc=self.usedcons
+		uc=list(self.usedcons)
 		if len(self.usedcons)==0:
 			return False
 		if ten:
 			uc+=self.tencons
 		pc=self.treesrc.getUnboundConstants()
 		if len(uc)==1 and len(pc)==0:
-			if ten:
-				self.tensplit=True
-			else:
-				self.split=True
 			return True
 		if len(uc)!=len(pc):
-			if ten:
-				self.tensplit=False
-			else:
-				self.split=False
 			return False
 		matches=[0]*len(uc)
 		for u in uc:
@@ -197,15 +203,7 @@ class UniversalGenTT(UniversalTT,ExpressionGenTT):
 				if u.equals(p):
 					matches[i]+=1
 		if matches!=[1]*len(uc):
-			if ten:
-				self.tensplit=False
-			else:
-				self.split=False
 			return False
-		if ten:
-			self.tensplit=True
-		else:
-			self.split=True
 		return True
 
 	def canSplit(self,ten=False):
@@ -216,14 +214,16 @@ class UniversalGenTT(UniversalTT,ExpressionGenTT):
 		self.tencons=[]
 
 	def setOpnum(self):
-		pass
+		global gopnum
+		self.opnums.append(gopnum)
+		gopnum+=1
 
 	def getPossibleSplits(self,ten=False):
 		cons=self.treesrc.getUnboundConstants(self)
 		if len(cons)==0 and ((not ten and len(self.usedcons)==0) or (ten and len(self.usedcons+self.tencons)==0)):
 			return [self.treesrc.getNewUnboundConstant(ten)]
 		rcons=[]
-		ucons=self.usedcons
+		ucons=list(self.usedcons)
 		if ten:
 			ucons+=self.tencons
 		for c in cons:
@@ -244,9 +244,9 @@ class ExistentialGenTT(ExistentialTT,ExpressionGenTT):
 	def ttevaluate(self,ten=False,addoptions=None):
 		t=self.treesrc.getTotal()
 		if ten:
-			t.tenunboundconstants.append(addoptions)
+			self.treesrc.addUnboundConstants(addoptions,ten)
 		else:
-			t.unboundconstants.append(addoptions)
+			self.treesrc.addUnboundConstants(addoptions,ten)
 		return [[self.replaceBound(addoptions)]]
 
 	def getPossibleSplits(self,ten=False):
@@ -270,29 +270,52 @@ class FOAtomGenTT(FOAtomTT,ExpressionGenTT):
 
 
 class TotalTruthTree:
-	def __init__(self,fname):
-		self.top=TruthTreeGen()
+	def __init__(self,fname=None,maxiters=100):
+		self.maxiters=maxiters
+		self.top=TruthTreeGen(maxiters=self.maxiters)
 		self.top.total=self
-		self.top.readArguementIn(fname)
+		if fname!=None:
+			self.top.readArguementIn(fname)
 		self.unboundconstants=[]
 		self.tenunboundconstants=[]
-
+		self.infinite=False
+		
 	def run(self):
+		global gopnum
+		gopnum=1
 		self.top.run()
 
 	def printTree(self):
 		printTruthTree(self.top)
 
-	def writeTree(self):
+	def writeTree(self,ofname):
 		writeTreeToFile(self.top,ofname)
 
+	def setPsandC(self,es,cons):
+		for e in es:
+			e.treesrc=self.top
+		self.top.premises=list(es[:-1])
+		self.top.conclusion=es[-1]
+		self.top.expressions=list(es[:-1])
+		self.top.expressions.append(NegationGenTT(es[-1]))
+		self.unboundconstants=list(cons)
+
+	def printValidity(self,i=""):
+		if self.infinite:
+			print i,"Too many steps taken so stopped"
+		if self.top.allSetToClosed():
+			print i,"Valid Arguement"
+		if self.top.anySetToOpen():
+			print i,"Invalid Arguement"
+
 class TruthTreeGen(TruthTree):
-	def __init__(self,parent=None,ten=False,total=None):
+	def __init__(self,parent=None,ten=False,total=None,maxiters=100):
 		TruthTree.__init__(self,parent,ten)
 		self.total=total
+		self.maxiters=maxiters
 
 	def run(self):
-		while True:
+		for i in range(self.maxiters):
 			if self.allClosed():
 				return
 			if self.anyOpen():
@@ -303,6 +326,7 @@ class TruthTreeGen(TruthTree):
 			(e,src,addop)=self.findBestSplit(possplits)
 			dest=src.addSplit(e.splitExpressionWithOptions(ten=False,addoptions=addop))
 			self.actions.append(AddSplitAction(src,e,dest,addop))
+		self.total.infinite=True
 
 	def allClosed(self,ten=False):
 		if self.closed:
@@ -338,7 +362,9 @@ class TruthTreeGen(TruthTree):
 		for p in self.premises:
 			p.treesrc=self
 			self.expressions.append(p)
-		self.expressions.append(NegationGenTT(self.conclusion))
+		c=NegationGenTT(self.conclusion)
+		c.treesrc=self
+		self.expressions.append(c)
 
 	def closedLeaf(self,ten=False):
 		global gopnum
@@ -434,8 +460,10 @@ class TruthTreeGen(TruthTree):
 
 	def findBestSplit(self,possplits):
 		bestchoices=[]
+		universalbestchoices=[]
 		bestlens=[]
 		bestv=None
+		universalbestv=None
 		for (ps,src,addop) in possplits:
 			nes=ps.splitExpressionWithOptions(ten=True,addoptions=addop)
 			src.addSplit(nes,True)
@@ -447,26 +475,44 @@ class TruthTreeGen(TruthTree):
 				self.clearTenative()
 				return (ps,src,addop)
 			self.clearTenative()
-			if bestv==None:
-				bestv=v
-				bestchoices.append((ps,src,addop))
-				bestlens.append(len(nes))
-			else:
-				if v==bestv:
+			if ps.getOperator()!=operators['Universal']:
+				if bestv==None:
 					bestv=v
 					bestchoices.append((ps,src,addop))
 					bestlens.append(len(nes))
-				if v<bestv:
-					bestv=v
-					bestchoices=[(ps,src,addop)]
-					bestlens=[len(nes)]
-		for (ps,src,addop) in bestchoices:
-			if ps.getOperator()==operators['Existential']:
-				return (ps,src,addop)
-		for i,(ps,src,addop) in enumerate(bestchoices):			
-			if bestlens[i]==1:
-				return (ps,src,addop)
-		return bestchoices[0]
+				else:
+					if v==bestv:
+						bestv=v
+						bestchoices.append((ps,src,addop))
+						bestlens.append(len(nes))
+					if v<bestv:
+						bestv=v
+						bestchoices=[(ps,src,addop)]
+						bestlens=[len(nes)]
+			else:
+				if universalbestv==None:
+					universalbestv=v
+					universalbestchoices.append((ps,src,addop))
+				else:
+					if v==universalbestv:
+						universalbestv=v
+						universalbestchoices.append((ps,src,addop))
+					if v<universalbestv:
+						universalbestv=v
+						universalbestchoices=[(ps,src,addop)]
+		if len(bestchoices)>0:
+			for (ps,src,addop) in bestchoices:
+				if ps.getOperator()==operators['Existential']:
+					return (ps,src,addop)
+			for i,(ps,src,addop) in enumerate(bestchoices):
+				if bestlens[i]==1:
+					return (ps,src,addop)
+			return bestchoices[0]
+		#Only ever split universals when there is nothing left
+		else:
+			mincons=min([len(ps.usedcons) for (ps,src,addop) in universalbestchoices])
+			return [(ps,src,addop) for (ps,src,addop) in universalbestchoices if len(ps.usedcons)==mincons][0]
+
 
 	def getTotal(self):
 		p=self
@@ -483,15 +529,14 @@ class TruthTreeGen(TruthTree):
 
 	def getNewUnboundConstant(self,ten=False):
 		t=self.getTotal()
-		existingucons=t.unboundconstants
+		existingucons=list(t.unboundconstants)
 		if ten:
-			existingucons+=t.tenunboundconstants
+			existingucons+=list(t.tenunboundconstants)
 		defaultname='a'
 		while True:
 			found=False
 			for uc in existingucons:
 				if uc.name==defaultname:
-					existingucons.remove(uc)
 					found=True
 			if not found:
 				return UnBoundConstant(defaultname)
@@ -510,7 +555,6 @@ class TruthTreeGen(TruthTree):
 			self.lchild.clearTenative()
 			if self.lchild.tenativeBranch:
 				self.lchild=None
-	
 
 	def getUnboundConstants(self,up=True,down=True):
 		ubc=[]

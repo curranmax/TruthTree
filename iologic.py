@@ -34,7 +34,6 @@ class LogicReader:
 				break
 			self.expressions.append(self.findExpression(expr,[]))
 		f.close()
-
 	#Parses a string into an expression, ensuring that atoms are shared
 	def findExpression(self,expression,bound):
 		#gets rid of any whitespace
@@ -72,12 +71,12 @@ class LogicReader:
 		if o=='&':
 			exs=[]
 			for s in split:
-				exs.append(self.findExpression(s))
+				exs.append(self.findExpression(s,bound))
 			expr=self.constructors["Conjunction"](exs)
 		if o=='|':
 			exs=[]
 			for s in split:
-				exs.append(self.findExpression(s))
+				exs.append(self.findExpression(s,bound))
 			expr=self.constructors["Disjunction"](exs)
 		if o=='->':
 			expr=self.constructors["Conditional"](self.findExpression(split[0],bound),self.findExpression(split[1],bound))
@@ -221,8 +220,37 @@ class LogicString(LogicReader):
 	def parseString(self,string):
 		return self.findExpression(string)
 
-r=LogicReader('logictest.txt')
-
-for e in r.expressions:
-	print e.toString()
-
+class MultiLogicReader(LogicReader):
+	def __init__(self,fname,constructors=None,atoms=[]):
+		self.atoms=atoms
+		self.expressions=[]
+		self.comments=[]
+		self.unboundconstants=[]
+		self.allunboundconstants=[]
+		self.boundencounetered=[]
+		if constructors==None:
+			#Default constructor
+			self.constructors={"Conjunction":GeneralizedConjunction,"Negation":Negation,"Disjunction":GeneralizedDisjunction,"Conditional":Conditional,"Biconditional":Biconditional,"Atom":Atom,"FOAtom":FOAtom,"UnBoundConstant":UnBoundConstant,"BoundConstant":BoundConstant,"Universal":Universal,"Existential":Existential}
+		else:
+			self.constructors=constructors
+		#Parses each line into an expression by calling findExpression on each line
+		f=open(fname)
+		t=[]
+		com=""
+		for line in f:
+			expr=line
+			if expr[:2]=='//':
+				com+=expr[2:]
+				continue
+			if expr=="\n":
+				self.expressions.append(t)
+				self.comments.append(com)
+				self.allunboundconstants.append(list(self.unboundconstants))
+				self.unboundconstants=[]
+				self.boundencounetered=[]
+				self.atoms=atoms
+				com=""
+				t=[]
+				continue
+			t.append(self.findExpression(expr,[]))
+		f.close()

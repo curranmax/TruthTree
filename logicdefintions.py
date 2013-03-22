@@ -45,7 +45,7 @@ class Constants:
 
 	#Dictionary of the unicode operators, used for outputing to the command line
 	def getUnicodeOperators(self):
-		return {"Negation":self.getUnicodeNegationOperator(),"Conjunction":self.getUnicodeConjunctionOperator(),"Disjunction":self.getUnicodeDisjunctionOperator(),"Conditional":self.getUnicodeConditionalOperator(),"BiConditional":self.getUnicodeBiConditionalOperator()}
+		return {"Negation":self.getUnicodeNegationOperator(),"Conjunction":self.getUnicodeConjunctionOperator(),"Disjunction":self.getUnicodeDisjunctionOperator(),"Conditional":self.getUnicodeConditionalOperator(),"BiConditional":self.getUnicodeBiConditionalOperator(),"Universal":self.getUnicodeUniversalOperator(),"Existential":self.getUnicodeExistentialOperator()}
 
 	#Dictionary of the simple operators, used with the files
 	def getSimpleOperators(self):
@@ -174,9 +174,29 @@ class TrueFalseConstants(Constants):
 #   A->B  |  ~A|B   |      False
 #   ~~A   |    A    |      False
 
+class Expression:
+	def __init__(self):
+		pass
+
+	def isGeneralized(self):
+		return False
+
+	def swapConstants(self,b,u):
+		es=self.toList()
+		for e in es:
+			e.swapConstants(b,u)
+
+	def getUnboundConstants(self):
+		es=self.toList()
+		uc=[]
+		for e in es:
+			uc+=e.getUnboundConstants()
+		return list(set(uc))
+
 #I commented Negation Generalized Conjunction and Atom, becuase the others are basically all the same
-class Negation:
+class Negation(Expression):
 	def __init__(self,ex):
+		Expression.__init__(self)
 		self.expr=ex
 		self.parent=None
 		self.expr.parent=self
@@ -206,11 +226,12 @@ class Negation:
 			return self.expr.equals(ex.expr)
 		return False
 
-	def isGeneralized(self):
-		return False
+	def toList(self):
+		return [self.expr]
 
-class Conjunction:
+class Conjunction(Expression):
 	def __init__(self,ex1,ex2):
+		Expression.__init__(self)
 		self.expr1=ex1
 		self.expr2=ex2
 		self.parent=None
@@ -237,12 +258,13 @@ class Conjunction:
 			return (self.expr1.equals(ex.expr1) and self.expr2.equals(ex.expr2)) or (self.expr1.equals(ex.expr2) and self.expr2.equals(ex.expr1))
 		return False
 
-	def isGeneralized(self):
-		return False
+	def toList(self):
+		return [self.expr1,self.expr2]
 
 #The Generalized versions store a list of expressions
-class GeneralizedConjunction:
+class GeneralizedConjunction(Expression):
 	def __init__(self,exs):
+		Expression.__init__(self)
 		self.exs=[]
 		self.parent=None
 		#Makes sure that none of the expressions are Conjunctions themselves
@@ -304,8 +326,12 @@ class GeneralizedConjunction:
 			return True
 		return False
 
-class Disjunction:
+	def toList(self):
+		return self.exs
+
+class Disjunction(Expression):
 	def __init__(self,ex1,ex2):
+		Expression.__init__(self)
 		self.expr=Negation(Conjunction(Negation(ex1),Negation(ex2)))
 		self.ex1=ex1
 		self.ex2=ex2
@@ -331,11 +357,9 @@ class Disjunction:
 			return (self.ex1.equals(ex.ex1) and self.ex2.equals(ex.ex2)) or (self.ex1.equals(ex.ex2) and self.ex2.equals(ex.ex1))
 		return False
 
-	def isGeneralized(self):
-		return False
-
-class GeneralizedDisjunction:
+class GeneralizedDisjunction(Expression):
 	def __init__(self,exs):
+		Expression.__init__(self)
 		self.exs=[]
 		self.parent=None
 		while True:
@@ -392,8 +416,12 @@ class GeneralizedDisjunction:
 			return True
 		return False
 
-class Conditional:
+	def toList(self):
+		return self.exs
+
+class Conditional(Expression):
 	def __init__(self,ex1,ex2):
+		Expression.__init__(self)
 		self.expr=Negation(Conjunction(ex1,Negation(ex2)))
 		self.ex1=ex1
 		self.ex2=ex2
@@ -419,11 +447,12 @@ class Conditional:
 			return (self.ex1.equals(ex.ex1) and self.ex2.equals(ex.ex2))
 		return False
 
-	def isGeneralized(self):
-		return False
+	def toList(self):
+		return [self.ex1,self.ex2]
 
-class Biconditional:
+class Biconditional(Expression):
 	def __init__(self,ex1,ex2):
+		Expression.__init__(self)
 		self.expr=Conjunction(Conditional(ex1,ex2),Conditional(ex2,ex1))
 		self.ex1=ex1
 		self.ex2=ex2
@@ -449,11 +478,12 @@ class Biconditional:
 			return (self.ex1.equals(ex.ex1) and self.ex2.equals(ex.ex2)) or (self.ex1.equals(ex.ex2) and self.ex2.equals(ex.ex1))
 		return False
 
-	def isGeneralized(self):
-		return False
+	def toList(self):
+		return [self.ex1,self.ex2]
 
-class Universal:
+class Universal(Expression):
 	def __init__(self,ex,bcon):
+		Expression.__init__(self)
 		if not bcon.isBound():
 			raise Exception('Unbound constant supplied to Universal')
 		ex.parexpr=self
@@ -474,11 +504,19 @@ class Universal:
 			return self.expr.equals(self.ex) and self.con.equals(ex.con)
 		return False
 
-	def isGeneralized(self):
-		return False
+	def replaceBound(self,ubon):
+		if ubon.isBound():
+			return None
+		copy=cop.copyExpression(self.expr)
+		copy.swapConstants(self.con,ubon)
+		return copy
 
-class Existential:
+	def toList(self):
+		return [self.expr]
+
+class Existential(Expression):
 	def __init__(self,ex,bcon):
+		Expression.__init__(self)
 		if not bcon.isBound():
 			raise Exception('Unbound constant supplied to Universal')
 		ex.parexpr=self
@@ -490,6 +528,13 @@ class Existential:
 			return con.getSimpleExistentialOperator()
 		return con.getUnicodeExistentialOperator()
 
+	def replaceBound(self,ubon):
+		if ubon.isBound():
+			return None
+		copy=cop.copyExpression(self.expr)
+		copy.swapConstants(self.con,ubon)
+		return copy
+
 	def toString(self,simp=False):
 		op,cp=getParens(self.expr.getOperator(simp),self.getOperator(simp))
 		return self.getOperator(simp)+self.con.toString()+op+self.expr.toString(simp=simp)+cp
@@ -499,13 +544,14 @@ class Existential:
 			return self.expr.equals(self.ex) and self.con.equals(ex.con)
 		return False
 
-	def isGeneralized(self):
-		return False
+	def toList(self):
+		return [self.expr]
 
 #Atoms is special because its equality is based on pointers, thus two Atoms are the same only if they are the same pointer
 #The pointer is form the truthtable
-class Atom:
+class Atom(Expression):
 	def __init__(self,name):
+		Expression.__init__(self)
 		self.val=con.getDefaultValue()
 		self.name=name
 
@@ -540,11 +586,12 @@ class Atom:
 			pass
 		return False
 
-	def isGeneralized(self):
-		return False
+	def toList(self):
+		return []
 
-class FOAtom:
+class FOAtom(Expression):
 	def __init__(self,atom,vs):
+		Expression.__init__(self)
 		self.atom=atom
 		self.numcons=len(vs)
 		self.val=con.getDefaultValue()
@@ -581,6 +628,16 @@ class FOAtom:
 			s+=v.toString()+","
 		return s[:-1]+")"
 
+	def swapConstants(self,b,u):
+		self.replace(b,u)
+
+	def replace(self,cold,cnew):
+		for i,c in enumerate(self.vs):
+			if c==cold:
+				cnew.childatoms.append(self)
+				self.vs[i]=cnew
+
+
 	def equals(self,ex):
 		#incase not a FOAtom
 		try:
@@ -598,8 +655,11 @@ class FOAtom:
 				return True
 			return False
 
-	def isGeneralized(self):
-		return False
+	def toList(self):
+		return []
+
+	def getUnboundConstants(self):
+		return [v for v in self.vs if not v.isBound()]
 
 class BoundConstant:
 	def __init__(self,name):
@@ -632,7 +692,37 @@ class UnBoundConstant:
 		return False
 
 #Instance of the Constants that is referenced in other scripts
-con=TrueFalseConstants()
+class LogicCopier:
+	def __init__(self,cons=None):
+		if cons==None:
+			self.cons={"Conjunction":GeneralizedConjunction,"Negation":Negation,"Disjunction":GeneralizedDisjunction,"Conditional":Conditional,"Biconditional":Biconditional,"FOAtom":FOAtom,"Universal":Universal,"Existential":Existential}
+		else:
+			self.cons=cons
+		self.ops=con.getUnicodeOperators()
+	def copyExpression(self,expr):
+		if expr.getOperator()==self.ops["Negation"]:
+			return self.cons["Negation"](self.copyExpression(expr.expr))
+		if expr.getOperator()==self.ops["Conjunction"]:
+			ne=[]
+			for e in expr.exs:
+				ne.append(self.copyExpression(e))
+			return self.cons["Conjunction"](ne)
+		if expr.getOperator()==self.ops["Disjunction"]:
+			ne=[]
+			for e in expr.exs:
+				ne.append(self.copyExpression(e))
+			return self.cons["Disjunction"](ne)
+		if expr.getOperator()==self.ops["Conditional"]:
+			return self.cons["Conditional"](self.copyExpression(expr.ex1),self.copyExpression(expr.ex2))
+		if expr.getOperator()==self.ops["BiConditional"]:
+			return self.cons["Biconditional"](self.copyExpression(expr.ex1),self.copyExpression(expr.ex2))
+		if expr.getOperator()=='':
+			return self.cons["FOAtom"](expr.atom,list(expr.vs))
+		if expr.getOperator()==self.ops["Universal"]:
+			return self.cons["Universal"](self.copyExpression(expr.expr),expr.con)
+		if expr.getOperator()==self.ops["Existential"]:
+			return self.cons["Existential"](self.copyExpression(expr.expr),expr.con)
+
 
 #Figures out the parens issue
 def getParens(childop,selfop=None):
@@ -640,13 +730,6 @@ def getParens(childop,selfop=None):
 		return ('','')
 	return ('(',')')
 
-y=BoundConstant('y')
-x=BoundConstant('x')
-P=FOAtom(Atom('P'),[x])
-Q=FOAtom(Atom('Q'),[x])
 
-u=Universal(Conditional(P,Q),x)
-v=Universal(Conditional(Q,P),x)
-pq=Conditional(u,v)
-
-#print pq.toString()
+con=TrueFalseConstants()
+cop=LogicCopier()

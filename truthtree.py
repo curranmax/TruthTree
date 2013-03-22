@@ -23,6 +23,7 @@ class ExpressionTT:
 		self.opnum=0
 		self.split=self.isAtom()
 		self.tensplit=self.isAtom()
+		self.treesrc=None
 
 	#Splits the expressoin for generating trees
 	#marks the number of the split as well
@@ -30,15 +31,16 @@ class ExpressionTT:
 		if ten:
 			if self.tensplit:
 				return [[]]
-			self.tensplit=True
-			return self.ttevaluate()
-		global gopnum
-		self.opnum=gopnum
-		gopnum+=1
+			self.tensplit=self.doneSplitting(ten)
+			return self.ttevaluate(ten)
+		if self.getOperator()!=operators["Universal"]:
+			global gopnum
+			self.opnum=gopnum
+			gopnum+=1
 		if self.split:
 			return [[]]
-		self.split=True
-		return self.ttevaluate()
+		self.split=self.doneSplitting(ten)
+		return self.ttevaluate(ten)
 
 	def clearTenative(self):
 		self.tensplit=self.isAtom()
@@ -54,7 +56,10 @@ class ExpressionTT:
 		global gopnum
 		self.opnum=gopnum
 		gopnum+=1
-		self.split=True
+		self.split=self.doneSplitting()
+		return True
+
+	def doneSplitting(self,ten=False):
 		return True
 
 #***********IMPORTANT******************
@@ -81,7 +86,7 @@ class NegationTT(Negation,ExpressionTT):
 
 	#Returns the split of the expression
 	#For the Negation, it matters on what the subexpression is
-	def ttevaluate(self):
+	def ttevaluate(self,ten=False):
 		if self.isAtom():
 			return [[self]]
 		else:
@@ -122,7 +127,7 @@ class ConjunctionTT(Conjunction,ExpressionTT):
 	def isAtom(self):
 		return False
 
-	def ttevaluate(self):
+	def ttevaluate(self,ten=False):
 		return [[self.expr1,self.expr2]]
 
 	def toString(self,outside=False,simp=False):
@@ -140,7 +145,7 @@ class GeneralizedConjunctionTT(GeneralizedConjunction,ExpressionTT):
 	def isAtom(self):
 		return False
 
-	def ttevaluate(self):
+	def ttevaluate(self,ten=False):
 		return [list(self.exs)]
 
 	def toString(self,outside=False,simp=False):
@@ -157,7 +162,7 @@ class DisjunctionTT(Disjunction,ExpressionTT):
 	def isAtom(self):
 		return False
 
-	def ttevaluate(self):
+	def ttevaluate(self,ten=False):
 		return [[self.ex1],[self.ex2]]
 
 	def toString(self,outside=False,simp=False):
@@ -175,7 +180,7 @@ class GeneralizedDisjunctionTT(GeneralizedDisjunction,ExpressionTT):
 	def isAtom(self):
 		return False
 
-	def ttevaluate(self):
+	def ttevaluate(self,ten=False):
 		if len(self.exs)==2:
 			return [[self.exs[0]],[self.exs[1]]]
 		else:
@@ -195,7 +200,7 @@ class ConditionalTT(Conditional,ExpressionTT):
 	def isAtom(self):
 		return False
 
-	def ttevaluate(self):
+	def ttevaluate(self,ten=False):
 		return [[NegationTT(self.ex1)],[self.ex2]]
 
 	def toString(self,outside=False,simp=False):
@@ -212,11 +217,102 @@ class BiconditionalTT(Biconditional,ExpressionTT):
 	def isAtom(self):
 		return False
 
-	def ttevaluate(self):
+	def ttevaluate(self,ten=False):
 		return [[self.ex1,self.ex2],[NegationTT(self.ex1),NegationTT(self.ex2)]]
 
 	def toString(self,outside=False,simp=False):
 		s=Biconditional.toString(self,simp)
+		if self.split and self.opnum>0 and outside:
+			s+=" "+checkchar+str(self.opnum)
+		return s
+
+class UniversalTT(Universal,ExpressionTT):
+	def __init__(self,ex,bcon):
+		Universal.__init__(self,ex,bcon)
+		ExpressionTT.__init__(self)
+		self.usedcons=[]
+		self.opnums=[]
+		self.tencons=[]
+
+	def isAtom(self):
+		return False
+
+	def ttevaluate(self,ten=False):
+		print ten
+		cons=self.treesrc.getUnboundConstants(self)
+		for c in cons:
+			found=False
+			for uc in self.usedcons:
+				if c.equals(uc):
+					found=True
+					break
+			if not found:
+				if ten:
+					self.tencons.append(c)
+				else:
+					self.usedcons.append(c)
+				return [[self.replaceBound(c)]]
+		print self.toString()
+		return [[]]
+
+	def toString(self,outside=False,simp=False):
+		s=Universal.toString(self,simp)
+		if outside:
+			for i,uc in enumerate(self.usedcons):
+				s+=" "+str(self.opnums[i])+"-"+uc.toString()
+		return s
+
+	def doneSplitting(self,ten=False):
+		if ten:
+			if self.tensplit:
+				return True
+		else:
+			if self.split:
+				return True
+		uc=self.usedcons
+		if ten:
+			uc+=self.tencons
+		pc=self.treesrc.getUnboundConstants(self)
+		if len(uc)!=len(pc):
+			if ten:
+				self.tensplit=False
+			else:
+				self.split=False
+			return False
+		matches=[0]*len(uc)
+		for u in uc:
+			for i,p in enumerate(pc):
+				if u.equals(p):
+					matches[i]+=1
+		if matches!=[1]*len(uc):
+			if ten:
+				self.tensplit=False
+			else:
+				self.split=False
+			return False
+		if ten:
+			self.tensplit=True
+		else:
+			self.split=True
+		return True
+
+	def clearTenative(self):
+		self.tensplit=self.isAtom()
+		self.tencons=[]
+
+class ExistentialTT(Existential,ExpressionTT):
+	def __init__(self,ex,bcon):
+		Existential.__init__(self,ex,bcon)
+		ExpressionTT.__init__(self)
+
+	def isAtom(self):
+		return False
+
+	def ttevaluate(self,ten=False):
+		return [[self]]
+
+	def toString(self,outside=False,simp=False):
+		s=Existential.toString(self,simp)
 		if self.split and self.opnum>0 and outside:
 			s+=" "+checkchar+str(self.opnum)
 		return s
@@ -229,7 +325,7 @@ class AtomTT(Atom,ExpressionTT):
 	def isAtom(self):
 		return True
 
-	def ttevaluate(self):
+	def ttevaluate(self,ten=False):
 		return [[self]]
 
 	def toString(self,outside=False,simp=False):
@@ -238,20 +334,44 @@ class AtomTT(Atom,ExpressionTT):
 			s+=" "+checkchar+str(self.opnum)
 		return s
 
+class FOAtomTT(FOAtom,ExpressionTT):
+	def __init__(self,atom,cons):
+		FOAtom.__init__(self,atom,cons)
+		ExpressionTT.__init__(self)
+
+	def isAtom(self):
+		return True
+
+	def ttevaluate(self,ten=False):
+		return [[self]]
+
+	def toString(self,outside=False,simp=False):
+		s=FOAtom.toString(self)
+		if self.split and self.opnum>0 and outside:
+			s+=" "+checkchar+str(self.opnum)
+		return s
+
 #These actions are created as a tree is made
 #I would like to extend these to allow for undo and redo, also making a tree structure for more complex undo and redo capabilities
 #These store references to the objects in question
 class AddSplitAction:
-	def __init__(self,srctree,srce,dests):
+	def __init__(self,srctree,srce,dests,addop):
 		self.srctree=srctree
 		self.srce=srce
 		#dests is a list of tuples, where the first value in the tuple is an expression and the other is a tree
 		self.dests=dests
+		self.addop=addop
 
 	def toString(self,simp=False):
 		s="Action "+str(self.srce.opnum)+"\n"
 		s+="Srctree "+self.srctree.actionString()
 		s+="\nSrce "+self.srce.toString(simp=simp)
+		if self.srce.getOperator() in [operators['Universal'],operators['Existential']]: 
+			s+="\nSrcops "+self.addop.toString()
+		elif self.addop==None:
+			s+="\nSrcops None"
+		else:
+			s+="\nSrcops "+(str(i) for i in self.addop)
 		for e,t in self.dests:
 			s+="\nDtree "+t.actionString()+"\nDe "+e.toString(simp=simp)
 		return s+"\n"
@@ -328,21 +448,6 @@ class TruthTree:
 		self.opnum=0
 		#Actions, these are only stored in the root
 		self.actions=[]
-
-	#checks if all of this sections leaves are closed
-	#Actually checks if leaves are closed, this is not desired during IO or when a user is making a tree
-	def allClosed(self,tenative=False):
-		if self.closed:
-			return True
-		if not self.closed and not self.isLeaf():
-			r=self.rchild.allClosed(tenative) and self.lchild.allClosed(tenative)
-			if not tenative:
-				self.closed=r
-			return r
-		r=self.closedLeaf(tenative)
-		if not tenative:
-			self.closed=r
-		return r
 	
 	#Doesn't calculate if closed, just if the closed variable is true for all leaves
 	#use this when doing IO, or user make trees
@@ -360,20 +465,6 @@ class TruthTree:
 		self.opnum=gopnum
 		gopnum+=1
 
-	#Mimick the closed functions
-	def anyOpen(self,ten=False):
-		if self.open:
-			return True
-		if not self.open and self.rchild!=None and self.lchild!=None:
-			r=self.rchild.anyOpen(ten) or self.lchild.anyOpen(ten)
-			if not ten:
-				self.open=r
-			return r
-		r=self.openLeaf(ten)
-		if not ten:
-			self.open=r
-		return r
-
 	def anySetToOpen(self):
 		if not self.open and not self.isLeaf():
 			self.open=self.rchild.anySetToOpen() or self.lchild.anySetToOpen()
@@ -388,11 +479,12 @@ class TruthTree:
 
 	#Reads in an arguement file and sets upt eh expressions correctly
 	def readArguementIn(self,fname):
-		lr=LogicReader(fname,{"Conjunction":GeneralizedConjunctionTT,"Negation":NegationTT,"Disjunction":GeneralizedDisjunctionTT,"Conditional":ConditionalTT,"Biconditional":BiconditionalTT,"Atom":AtomTT})
+		lr=LogicReader(fname,{"Conjunction":GeneralizedConjunctionTT,"Negation":NegationTT,"Disjunction":GeneralizedDisjunctionTT,"Conditional":ConditionalTT,"Biconditional":BiconditionalTT,"Atom":AtomTT,"FOAtom":FOAtomTT,"UnBoundConstant":UnBoundConstant,"BoundConstant":BoundConstant,"Universal":UniversalTT,"Existential":ExistentialTT})
 		self.atoms=lr.atoms
 		self.premises=lr.expressions[:-1]
 		self.conclusion=lr.expressions[-1]
 		for p in self.premises:
+			p.treesrc=self
 			self.expressions.append(p)
 		self.expressions.append(NegationTT(self.conclusion))
 
@@ -412,91 +504,6 @@ class TruthTree:
 			self.actions.append(a)
 		else:
 			self.parent.addActionToTop(a)
-
-	#Checks if a leaf is closed
-	#Used in generation, since it actually checks for contradiction
-	def closedLeaf(self,ten=False):
-		global gopnum
-		if not self.isLeaf():
-			return False
-
-		if self.closed:
-			return True
-		atomsinbranch=[]
-		currbranch=self
-		while True:
-			if ten:
-				es=currbranch.expressions+currbranch.tenativeExpressions
-			else:
-				es=currbranch.expressions
-			for e in es:
-				if e.isAtom():
-					for a in atomsinbranch:
-						if self.isContradiction(e,a):
-							if not ten:
-								if self.opnum==0:
-									self.opnum=gopnum
-									gopnum+=1
-								self.addActionToTop(ClosedLeafAction(self))
-								self.closed=True
-							return True
-					atomsinbranch.append(e)
-			currbranch=currbranch.parent
-			if currbranch==None:
-				break
-		if not ten:
-			self.closed=False
-		return False
-
-	#Same as above function but with open
-	#Also this calls the above function
-	def openLeaf(self,ten=False):
-		global gopnum
-		if not self.isLeaf():
-			return False
-
-		if self.closedLeaf(ten):
-			if not ten:
-				self.open=False
-			return False
-
-		if self.open:
-			return True
-
-		currbranch=self
-		while True:
-			if ten:
-				es=currbranch.expressions+currbranch.tenativeExpressions
-			else:
-				es=currbranch.expressions
-			for e in es:
-				if e.canSplit(ten):
-					if not ten:
-						self.open=False
-					return False
-			currbranch=currbranch.parent
-			if currbranch==None:
-				break
-		if not ten:
-			if(self.opnum==0):
-				self.opnum=gopnum
-				gopnum+=1
-			self.addActionToTop(OpenLeafAction(self))
-			self.open=True
-		return True
-
-	#Checks if two truth tree atoms are contradictions
-	def isContradiction(self,a1,a2):
-		if not(a1.isAtom() and a2.isAtom()):
-			return False
-		a1op=a1.getOperator()
-		a2op=a2.getOperator()
-		if a1op==a2op:
-			return False
-		if a1op==operators['Negation']:
-			return a1.expr==a2
-		else:
-			return a1==a2.expr
 
 	#Gets the upper bound on size on printing a tree
 	#Used when printing the tree to command line
@@ -600,9 +607,11 @@ class TruthTree:
 				d=[]
 				if ten:
 					for e in nes[0]:
+						e.treesrc=self
 						self.tenativeExpressions.append(e)
 				else:
 					for e in nes[0]:
+						e.treesrc=self
 						self.expressions.append(e)
 						d.append((e,self))
 				return d
@@ -652,63 +661,6 @@ class TruthTree:
 			lu,ll,lt=self.lchild.countLeafsAndTotal()
 			return (ru+lu,rl+ll,rt+lt+1)
 
-	#Gets rid of any tenative data so another expression can be tried
-	def clearTenative(self):
-		for e in self.expressions:
-			e.clearTenative()
-		self.tenativeExpressions=[]
-		if self.rchild!=None:
-			self.rchild.clearTenative()
-			if self.rchild.tenativeBranch:
-				self.rchild=None
-		if self.lchild!=None:
-			self.lchild.clearTenative()
-			if self.lchild.tenativeBranch:
-				self.lchild=None
-
-	#Finds the "best" expression to split
-	def findBestSplit(self,possplits):
-		bestchoices=[]
-		bestv=None
-		for (ps,src) in possplits:
-			src.addSplit(ps.splitExpression(True),True)
-			v=self.countLeafsAndTotal()
-			if self.anyOpen(True):
-				self.clearTenative()
-				return (ps,src)
-			if self.allClosed(True):
-				self.clearTenative()
-				return (ps,src)
-			self.clearTenative()
-			if bestv==None:
-				bestv=v
-				bestchoices.append((ps,src))
-			else:
-				if v==bestv:
-					bestv=v
-					bestchoices.append((ps,src))
-				if v<bestv:
-					bestv=v
-					bestchoices=[(ps,src)]
-		for (ps,src) in bestchoices:
-			if len(ps.ttevaluate())==1:
-				return (ps,src)
-		return bestchoices[0]
-
-	#Generates the tree
-	def run(self):
-		while True:
-			if self.allClosed():
-				return
-			if self.anyOpen():
-				return
-			possplits=self.getPossibleSplits()
-			if len(possplits)==0:
-				return
-			(e,src)=self.findBestSplit(possplits)
-			dest=src.addSplit(e.splitExpression())
-			self.actions.append(AddSplitAction(src,e,dest))
-		
 	#Used by the checker to set up the tree	
 	def initialize(self,a,p,c):
 		self.atoms=a
@@ -894,6 +846,7 @@ class TruthTree:
 					print "Invalid destination tree"
 				t.addChildren()
 				t=self.getTreeSection(dt)
+			destes[i].treesrc=t
 			t.expressions.append(destes[i])
 			ts.append((destes[i],t))
 		if self.anyEmptySections():
@@ -913,7 +866,6 @@ class TruthTree:
 		if t.isLeaf():
 			return False
 		return t.rchild.anyEmptySections(False) or t.lchild.anyEmptySections(False)
-
 
 #Reads in an action file
 #Format
@@ -1084,23 +1036,10 @@ def lengthenLine(l,newns):
 
 #Copies a split
 def copyListOfExpressions(le):
-	nl=[[copyExpression(e) for e in subl] for subl in le]
+	nl=[[cop.copyExpression(e) for e in subl] for subl in le]
 	return nl
 
-#Copies everything but AtomTT
-def copyExpression(e):
-	if e.getOperator()=="":
-		return e
-	if e.getOperator()==operators["Negation"]:
-		return NegationTT(copyExpression(e.expr))
-	if e.getOperator()==operators["Conjunction"]:
-		return ConjunctionTT(copyExpression(e.expr1),copyExpression(e.expr2))
-	if e.getOperator()==operators["Disjunction"]:
-		return DisjunctionTT(copyExpression(e.ex1),copyExpression(e.ex2))
-	if e.getOperator()==operators["Conditional"]:
-		return ConditionalTT(copyExpression(e.ex1),copyExpression(e.ex2))
-	if e.getOperator()==operators["Biconditional"]:
-		return Biconditional(copyExpression(e.ex1),copyExpression(e.ex2))
+cop.cons={"Conjunction":GeneralizedConjunctionTT,"Negation":NegationTT,"Disjunction":GeneralizedDisjunctionTT,"Conditional":ConditionalTT,"Biconditional":BiconditionalTT,"FOAtom":FOAtomTT,"Universal":UniversalTT,"Existential":ExistentialTT}
 
 #headers for TruthTreeReader
 headers={"Valid":"V","Invalid":"I","Neither":"N","Premises":"P","Conclusion":"C","Actions":"A"}
@@ -1112,9 +1051,9 @@ def writeTreeToFile(tree,fname,append=False,result=None):
 		m='a'
 	f=open(fname,m)
 	if result==None:
-		if tree.allsetToClosed():
+		if tree.allSetToClosed():
 			f.write(headers["Valid"]+"\n")
-		elif tree.anysetToOpen():
+		elif tree.anySetToOpen():
 			f.write(headers["Invalid"]+"\n")
 		else:
 			f.write(headers["Neither"]+"\n")

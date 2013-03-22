@@ -1,61 +1,58 @@
 V
 P
-K->H
-H->L
-L->M
+@z(L(z)<->H(z))
+@x~(H(x)|~B(x))
 
 C
-K->M
+~L(b)
 
 A
 Action 1
 Srctree h
-Srce ~(K->M)
+Srce ~~L(b)
+Srcops None
 Dtree h
-De K
-Dtree h
-De ~M
+De L(b)
 
-Action 2
+Action 0
 Srctree h
-Srce K->H
-Dtree hr
-De ~K
-Dtree hl
-De H
+Srce @z(L(z)<->H(z))
+Srcops b
+Dtree h
+De L(b)<->H(b)
 
-Action 3
-Closedtree hr
+Action 0
+Srctree h
+Srce @x~(H(x)|~B(x))
+Srcops b
+Dtree h
+De ~(H(b)|~B(b))
 
 Action 4
 Srctree h
-Srce H->L
-Dtree hlr
-De ~H
-Dtree hll
-De L
+Srce ~(H(b)|~B(b))
+Srcops None
+Dtree h
+De ~H(b)
+Dtree h
+De ~~B(b)
 
 Action 5
 Srctree h
-Srce L->M
-Dtree hlrr
-De ~L
-Dtree hlrl
-De M
-Dtree hllr
-De ~L
-Dtree hlll
-De M
+Srce L(b)<->H(b)
+Srcops None
+Dtree hr
+De L(b)
+Dtree hr
+De H(b)
+Dtree hl
+De ~L(b)
+Dtree hl
+De ~H(b)
 
 Action 6
-Closedtree hlrr
+Closedtree hr
 
 Action 7
-Closedtree hlrl
-
-Action 8
-Closedtree hllr
-
-Action 9
-Closedtree hlll
+Closedtree hl
 
