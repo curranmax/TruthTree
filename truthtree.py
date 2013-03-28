@@ -12,8 +12,7 @@ from iologic import *
 
 checkchar=u"\u2713 "
 operators=con.getUnicodeOperators()
-gopnum=1
-gcheckopnum=1
+gopnum=[1]
 debug=False
 
 #Parent of all the other TT expressions
@@ -25,42 +24,11 @@ class ExpressionTT:
 		self.tensplit=self.isAtom()
 		self.treesrc=None
 
-	#Splits the expressoin for generating trees
-	#marks the number of the split as well
-	def splitExpression(self,ten=False):
-		if ten:
-			if self.tensplit:
-				return [[]]
-			self.tensplit=self.doneSplitting(ten)
-			return self.ttevaluate(ten)
-		if self.getOperator()!=operators["Universal"]:
-			global gopnum
-			self.opnum=gopnum
-			gopnum+=1
-		if self.split:
-			return [[]]
-		self.split=self.doneSplitting(ten)
-		return self.ttevaluate(ten)
-
-	def clearTenative(self):
-		self.tensplit=self.isAtom()
-
-	def canSplit(self,ten=False):
-		if ten:
-			return not self.tensplit
-		return not self.split
-
 	def userSplit(self):
-		if self.split:
-			return False
-		global gopnum
-		self.opnum=gopnum
-		gopnum+=1
-		self.split=self.doneSplitting()
+		self.opnum=gopnum[0]
+		gopnum[0]+=1
 		return True
 
-	def doneSplitting(self,ten=False):
-		return True
 
 #***********IMPORTANT******************
 #So the format of a split is a little weird
@@ -80,36 +48,8 @@ class NegationTT(Negation,ExpressionTT):
 		Negation.__init__(self,ex)
 		ExpressionTT.__init__(self)
 
-
 	def isAtom(self):
 		return self.expr.getOperator()==""
-
-	#Returns the split of the expression
-	#For the Negation, it matters on what the subexpression is
-	def ttevaluate(self,ten=False):
-		if self.isAtom():
-			return [[self]]
-		else:
-			if self.expr.getOperator()==operators['Conjunction']:
-				if self.expr.isGeneralized():
-					if len(self.expr.exs)==2:
-						return [[NegationTT(self.expr.exs[0])],[NegationTT(self.expr.exs[1])]]
-					else:
-						return [[NegationTT(self.expr.exs[0])],[NegationTT(GeneralizedConjunctionTT(self.expr.exs[1:]))]]
-				else:
-					return [[NegationTT(self.expr.expr1)],[NegationTT(self.expr.expr2)]]
-
-			elif self.expr.getOperator()==operators['Disjunction']:
-				if self.expr.isGeneralized():
-					return [[NegationTT(e) for e in self.expr.exs]]
-				else:
-					return [[NegationTT(self.expr.ex1),NegationTT(self.expr.ex2)]]
-			elif self.expr.getOperator()==operators['Conditional']:
-				return [[self.expr.ex1,NegationTT(self.expr.ex2)]]
-			elif self.expr.getOperator()==operators['BiConditional']:
-				return [[self.expr.ex1,NegationTT(self.expr.ex2)],[NegationTT(self.expr.ex1),self.expr.ex2]]
-			elif self.expr.getOperator()==operators['Negation']:
-				return [[self.expr.expr]]
 
 	#special toString which includes check mark if the expression was split
 	#This only applies when outside is True
@@ -127,9 +67,6 @@ class ConjunctionTT(Conjunction,ExpressionTT):
 	def isAtom(self):
 		return False
 
-	def ttevaluate(self,ten=False):
-		return [[self.expr1,self.expr2]]
-
 	def toString(self,outside=False,simp=False):
 		s=Conjunction.toString(self,simp)
 		if self.split and self.opnum>0 and outside:
@@ -145,9 +82,6 @@ class GeneralizedConjunctionTT(GeneralizedConjunction,ExpressionTT):
 	def isAtom(self):
 		return False
 
-	def ttevaluate(self,ten=False):
-		return [list(self.exs)]
-
 	def toString(self,outside=False,simp=False):
 		s=GeneralizedConjunction.toString(self,simp)
 		if self.split and self.opnum>0 and outside:
@@ -161,9 +95,6 @@ class DisjunctionTT(Disjunction,ExpressionTT):
 
 	def isAtom(self):
 		return False
-
-	def ttevaluate(self,ten=False):
-		return [[self.ex1],[self.ex2]]
 
 	def toString(self,outside=False,simp=False):
 		s=Disjunction.toString(self,simp)
@@ -180,12 +111,6 @@ class GeneralizedDisjunctionTT(GeneralizedDisjunction,ExpressionTT):
 	def isAtom(self):
 		return False
 
-	def ttevaluate(self,ten=False):
-		if len(self.exs)==2:
-			return [[self.exs[0]],[self.exs[1]]]
-		else:
-			return [[self.exs[0]],GeneralizedDisjunctionTT(self.exs[1:])]
-
 	def toString(self,outside=False,simp=False):
 		s=GeneralizedDisjunction.toString(self,simp)
 		if self.split and self.opnum>0 and outside:
@@ -200,9 +125,6 @@ class ConditionalTT(Conditional,ExpressionTT):
 	def isAtom(self):
 		return False
 
-	def ttevaluate(self,ten=False):
-		return [[NegationTT(self.ex1)],[self.ex2]]
-
 	def toString(self,outside=False,simp=False):
 		s=Conditional.toString(self,simp)
 		if self.split and self.opnum>0 and outside:
@@ -216,9 +138,6 @@ class BiconditionalTT(Biconditional,ExpressionTT):
 
 	def isAtom(self):
 		return False
-
-	def ttevaluate(self,ten=False):
-		return [[self.ex1,self.ex2],[NegationTT(self.ex1),NegationTT(self.ex2)]]
 
 	def toString(self,outside=False,simp=False):
 		s=Biconditional.toString(self,simp)
@@ -237,24 +156,6 @@ class UniversalTT(Universal,ExpressionTT):
 	def isAtom(self):
 		return False
 
-	def ttevaluate(self,ten=False):
-		print ten
-		cons=self.treesrc.getUnboundConstants(self)
-		for c in cons:
-			found=False
-			for uc in self.usedcons:
-				if c.equals(uc):
-					found=True
-					break
-			if not found:
-				if ten:
-					self.tencons.append(c)
-				else:
-					self.usedcons.append(c)
-				return [[self.replaceBound(c)]]
-		print self.toString()
-		return [[]]
-
 	def toString(self,outside=False,simp=False):
 		s=Universal.toString(self,simp)
 		if outside:
@@ -262,59 +163,19 @@ class UniversalTT(Universal,ExpressionTT):
 				s+=" "+str(self.opnums[i])+"-"+uc.toString()
 		return s
 
-	def doneSplitting(self,ten=False):
-		if ten:
-			if self.tensplit:
-				return True
-		else:
-			if self.split:
-				return True
-		uc=self.usedcons
-		if ten:
-			uc+=self.tencons
-		pc=self.treesrc.getUnboundConstants(self)
-		if len(uc)!=len(pc):
-			if ten:
-				self.tensplit=False
-			else:
-				self.split=False
-			return False
-		matches=[0]*len(uc)
-		for u in uc:
-			for i,p in enumerate(pc):
-				if u.equals(p):
-					matches[i]+=1
-		if matches!=[1]*len(uc):
-			if ten:
-				self.tensplit=False
-			else:
-				self.split=False
-			return False
-		if ten:
-			self.tensplit=True
-		else:
-			self.split=True
-		return True
-
-	def clearTenative(self):
-		self.tensplit=self.isAtom()
-		self.tencons=[]
-
 class ExistentialTT(Existential,ExpressionTT):
 	def __init__(self,ex,bcon):
 		Existential.__init__(self,ex,bcon)
 		ExpressionTT.__init__(self)
+		self.usedcon=None
 
 	def isAtom(self):
 		return False
 
-	def ttevaluate(self,ten=False):
-		return [[self]]
-
 	def toString(self,outside=False,simp=False):
 		s=Existential.toString(self,simp)
 		if self.split and self.opnum>0 and outside:
-			s+=" "+checkchar+str(self.opnum)
+			s+=" "+checkchar+str(self.opnum)+"-"+self.usedcon.toString()
 		return s
 
 class AtomTT(Atom,ExpressionTT):
@@ -324,9 +185,6 @@ class AtomTT(Atom,ExpressionTT):
 
 	def isAtom(self):
 		return True
-
-	def ttevaluate(self,ten=False):
-		return [[self]]
 
 	def toString(self,outside=False,simp=False):
 		s=Atom.toString(self)
@@ -342,9 +200,6 @@ class FOAtomTT(FOAtom,ExpressionTT):
 	def isAtom(self):
 		return True
 
-	def ttevaluate(self,ten=False):
-		return [[self]]
-
 	def toString(self,outside=False,simp=False):
 		s=FOAtom.toString(self)
 		if self.split and self.opnum>0 and outside:
@@ -355,15 +210,16 @@ class FOAtomTT(FOAtom,ExpressionTT):
 #I would like to extend these to allow for undo and redo, also making a tree structure for more complex undo and redo capabilities
 #These store references to the objects in question
 class AddSplitAction:
-	def __init__(self,srctree,srce,dests,addop):
+	def __init__(self,srctree,srce,dests,addop,opnum):
 		self.srctree=srctree
 		self.srce=srce
 		#dests is a list of tuples, where the first value in the tuple is an expression and the other is a tree
 		self.dests=dests
 		self.addop=addop
+		self.opnum=opnum
 
 	def toString(self,simp=False):
-		s="Action "+str(self.srce.opnum)+"\n"
+		s="Action "+str(self.opnum)+"\n"
 		s+="Srctree "+self.srctree.actionString()
 		s+="\nSrce "+self.srce.toString(simp=simp)
 		if self.srce.getOperator() in [operators['Universal'],operators['Existential']]: 
@@ -371,7 +227,10 @@ class AddSplitAction:
 		elif self.addop==None:
 			s+="\nSrcops None"
 		else:
-			s+="\nSrcops "+(str(i) for i in self.addop)
+			s+="\nSrcops "
+			for i in self.addop:
+				s+=str(i)+","
+			s=s[:-1]
 		for e,t in self.dests:
 			s+="\nDtree "+t.actionString()+"\nDe "+e.toString(simp=simp)
 		return s+"\n"
@@ -394,26 +253,7 @@ class OpenLeafAction:
 		s+="Opentree "+self.tree.actionString()
 		return s+"\n"	
 
-#These are the actions are made when an action file is read
-#They can be applied to a tree to replicate the actoin
-#These store strings that can be deciphered to tree objects,
-#They store actual expression objects though
-class ForwardAddSplitAction:
-	def __init__(self,srctree,srce,dests,n):
-		self.srctree=srctree
-		self.srce=srce
-		self.dests=dests
-		self.opnum=n
 
-class ForwardClosedLeafAction:
-	def __init__(self,t,n):
-		self.tree=t
-		self.opnum=n
-
-class ForwardOpenLeafAction:
-	def __init__(self,t,n):
-		self.tree=t
-		self.opnum=n
 
 #This class does not represent the enter tree, but one section
 #It has references to its parent and child
@@ -459,11 +299,10 @@ class TruthTree:
 	#Sets a section to closed
 	#This is used when a user is making a tree
 	def setClosed(self):
-		global gopnum
 		self.addActionToTop(ClosedLeafAction(self))
 		self.closed=True
-		self.opnum=gopnum
-		gopnum+=1
+		self.opnum=gopnum[0]
+		gopnum[0]+=1
 
 	def anySetToOpen(self):
 		if not self.open and not self.isLeaf():
@@ -471,23 +310,11 @@ class TruthTree:
 		return self.open
 
 	def setOpen(self):
-		global gopnum
 		self.addActionToTop(OpenLeafAction(self))
 		self.open=True
-		self.opnum=gopnum
-		gopnum+=1
-
-	#Reads in an arguement file and sets upt eh expressions correctly
-	def readArguementIn(self,fname):
-		lr=LogicReader(fname,{"Conjunction":GeneralizedConjunctionTT,"Negation":NegationTT,"Disjunction":GeneralizedDisjunctionTT,"Conditional":ConditionalTT,"Biconditional":BiconditionalTT,"Atom":AtomTT,"FOAtom":FOAtomTT,"UnBoundConstant":UnBoundConstant,"BoundConstant":BoundConstant,"Universal":UniversalTT,"Existential":ExistentialTT})
-		self.atoms=lr.atoms
-		self.premises=lr.expressions[:-1]
-		self.conclusion=lr.expressions[-1]
-		for p in self.premises:
-			p.treesrc=self
-			self.expressions.append(p)
-		self.expressions.append(NegationTT(self.conclusion))
-
+		self.opnum=gopnum[0]
+		gopnum[0]+=1
+		
 	#checks if leaf
 	#I probably should use this more, but I do manual checks everywhere which is bad
 	def isLeaf(self):
@@ -594,73 +421,6 @@ class TruthTree:
 		if c==self.lchild:
 			return self.parent.actionString(self)+"l"
 
-	#Takes a list of list of expressions and adds that split
-	def addSplit(self,nes,ten=False):
-		#If this is a closed leaf, then nothing happens
-		#If the leaf is open, then no splits should have possible to make anyway
-		if self.closedLeaf(ten):
-			#The return is a list of the tree sections which added any expressions
-			return []
-		if len(nes)==1:
-			#Addes the expressions to a leave
-			if self.isLeaf():
-				d=[]
-				if ten:
-					for e in nes[0]:
-						e.treesrc=self
-						self.tenativeExpressions.append(e)
-				else:
-					for e in nes[0]:
-						e.treesrc=self
-						self.expressions.append(e)
-						d.append((e,self))
-				return d
-			else:
-				#Otherwise the expressions must be added to both children
-				#The copying gets rid of any weird things, but the special funtion is used to ensure that all AtomTT's are still consistent
-				d1=self.rchild.addSplit(copyListOfExpressions(nes),ten)
-				d2=self.lchild.addSplit(copyListOfExpressions(nes),ten)
-				if not ten:
-					return d1+d2
-		#Same but when child treees must be made
-		if len(nes)==2:
-			if self.rchild==None and self.lchild==None:
-				self.addChildren(ten)
-				d1=self.rchild.addSplit([nes[0]],ten)
-				d2=self.lchild.addSplit([nes[1]],ten)
-			else:
-				d1=self.rchild.addSplit(copyListOfExpressions(nes),ten)
-				d2=self.lchild.addSplit(copyListOfExpressions(nes),ten)
-			if not ten:
-				return d1+d2
-
-	#gets all expressions that can be split and the tree sections they are in
-	def getPossibleSplits(self):
-		if self.closed or self.open:
-			return []
-		possplits=[(e,self) for e in self.expressions if e.canSplit()]
-		if self.rchild!=None:
-			possplits+=self.rchild.getPossibleSplits()+self.lchild.getPossibleSplits()
-		return possplits
-
-	#Returns a list of all Truth Tree atoms that are reachable form a tree section
-	def getAllReachableAtoms(self):
-		atoms=[e for e in self.expressions if e.isAtom()]
-		if self.parent!=None:
-			atoms+=self.parent.getAllReachableAtoms()
-		return atoms
-
-	#Gets statistics of the tree as a whole, used to determine the best split so always uses tenative data
-	def countLeafsAndTotal(self):
-		if self.isLeaf():
-			if not self.closedLeaf(True) and not self.openLeaf(True):
-				return (1,1,1)
-			return (0,1,1)
-		else:
-			ru,rl,rt=self.rchild.countLeafsAndTotal()
-			lu,ll,lt=self.lchild.countLeafsAndTotal()
-			return (ru+lu,rl+ll,rt+lt+1)
-
 	#Used by the checker to set up the tree	
 	def initialize(self,a,p,c):
 		self.atoms=a
@@ -669,136 +429,6 @@ class TruthTree:
 		for pr in self.premises:
 			self.expressions.append(pr)
 		self.expressions.append(NegationTT(self.conclusion))
-
-	#Applies a forward action, calls a more specific function based on the type of forward action
-	def applyForwardAction(self,fa):
-		global gcheckopnum
-		if fa.opnum!=gcheckopnum:
-			return False
-		if isinstance(fa,ForwardAddSplitAction):
-			r=self.applyForwardAddSplitAction(fa)
-		elif isinstance(fa,ForwardClosedLeafAction):
-			r=self.applyForwardClosedLeafAction(fa)
-		elif isinstance(fa,ForwardOpenLeafAction):
-			r=self.applyForwardOpenLeafAction(fa)
-		gcheckopnum+=1
-		return r
-
-	#Applies a split
-	#THERE ARE BUGS IN THIS
-	#Example:  the checker won't recognize splitting A&A into A and A as valid.  This is because the two results equal each other
-	#Also won't work with Generalized Disjunctions, because the code thinks the only split is the first expression and the rest in two branches
-	def applyForwardAddSplitAction(self,fa):
-		#Gets the src tree and expression nd makes sure things are good
-		global gcheckopnum
-		stree=self.getTreeSection(fa.srctree)
-		if stree==None:
-			return False
-		actuale=None
-		for e in stree.expressions:
-			if e.equals(fa.srce):
-				actuale=e
-				break
-		if actuale==None:
-			return False
-		#Gets the theorical split, for Generalized Disjunctions this won't be right
-		nes=actuale.splitExpression()
-		#Finds all the spots where the split should be, this doesn't include the making of branches, since those would just be taking all of those spots and taking the rchild and lchild of those
-		#These are also tree objects
-		aspots=self.getAllAddSpots(fa.srctree,stree)
-		if not len(nes) in [1,2]:
-			return False
-		#Case that no new branches need to be made
-		if len(nes)==1:
-			#Makes sure there is a one to one between (expr, tree) in the action and in theory
-			es=nes[0]
-			if len(es)*len(aspots)!=len(fa.dests):
-				return False
-			necount=[0]*len(es)
-			spotslist=[0]*len(aspots)
-			for e,t in fa.dests:
-				for i,ne in enumerate(es):
-					if e.equals(ne):
-						necount[i]+=1
-				for i,sp in enumerate(aspots):
-					if t==sp:
-						spotslist[i]+=1
-			for nec in necount:
-				if nec!=len(aspots):
-					return False
-			for spn in spotslist:
-				if spn!=len(es):
-					return False
-			for sp in aspots:
-				t=self.getTreeSection(sp)
-				if t==None:
-					return False
-				t.expressions+=es
-		if len(nes)==2:
-			#This is pretty complicated because of the ambiguity of where the user can put expressions, but basically
-			#for each possible spot in aspots
-			#	There must be an one to one match in expressions in the action with aspots+'r' to those in es1
-			#   and There must be an one to one match in expressions in the action with aspots+'l' to those in es2
-			#                 OR
-			#	There must be an one to one match in expressions in the action with aspots+'r' to those in es2
-			#   and There must be an one to one match in expressions in the action with aspots+'l' to those in es1
-			#I check that and also record wether it was the first or the second, so I can recreate the tree accurately
-			es1=nes[0]
-			es2=nes[1]
-			if len(es1)*len(aspots)+len(es2)*len(aspots)!=len(fa.dests):
-				return False
-
-			spotsrl=[]
-			for sp in aspots:
-				for erl in [["r","l"],["l","r"]]:
-					w=True
-					m1=[0]*len(es1)
-					m2=[0]*len(es2)
-					for i,ne in enumerate(es1):
-						for e,t in fa.dests:
-							if ne.equals(e) and t==sp+erl[0]:
-								m1[i]+=1
-					for i,ne in enumerate(es2):
-						for e,t in fa.dests:
-							if ne.equals(e) and t==sp+erl[1]:
-								m2[i]+=1
-					for m in m1:
-						if m!=len(es1):
-							w=False
-					for m in m2:
-						if m!=len(es2):
-							w=False
-					if w:
-						spotsrl.append(erl)
-						break
-				if not w:
-					return False
-			for i,sp in enumerate(aspots):
-				t=self.getTreeSection(sp)
-				if not t.isLeaf():
-					return False
-				t.addChildren()
-				if spotsrl[i][0]=='r':
-					t.rchild.expressions+=es1
-					t.lchild.expressions+=es2
-				else:
-					t.rchild.expressions+=es2
-					t.lchild.expressions+=es1
-		return True
-
-	#Closes the tree section specified by the forward action
-	def applyForwardClosedLeafAction(self,fa):
-		l=self.getTreeSection(fa.tree)
-		if l==None:
-			return False
-		return l.closedLeaf()
-
-	#Opens the tree section specified by the forward action
-	def applyForwardOpenLeafAction(self,fa):
-		l=self.getTreeSection(fa.tree)
-		if l==None:
-			return False
-		return l.openLeaf()
 
 	#Gets the tree section from its actionstring
 	def getTreeSection(self,lstring):
@@ -815,14 +445,6 @@ class TruthTree:
 			if lr=='l':
 				t=t.lchild
 		return t
-
-	#Finds all spots that a split would add to
-	def getAllAddSpots(self,lstring,stree):
-		if stree.closed or stree.open:
-			return []
-		if stree.isLeaf():
-			return [lstring]
-		return self.getAllAddSpots(lstring+"r",stree.rchild)+self.getAllAddSpots(lstring+"l",stree.lchild)
 
 	#Adds a split specified by the user
 	def userSplit(self,sexpr,desttrees,destes):
@@ -866,108 +488,7 @@ class TruthTree:
 		if t.isLeaf():
 			return False
 		return t.rchild.anyEmptySections(False) or t.lchild.anyEmptySections(False)
-
-#Reads in an action file
-#Format
-#I|V|N  //I means invalid arguement, V manes valid and N means neither(I am not sure if i should get rid of this)
-#P      //Premises
-#expressions
-#//Newline indicates end of expressions
-#C      //Conclusion
-#an expression
-#
-#A  	//Actions
-#Action
-#//Newline between actions
-#Action
-#
-#...
-class TruthTreeReader(LogicReader):
-	def __init__(self,fname):
-		self.atoms=[]
-		self.constructors={"Conjunction":GeneralizedConjunctionTT,"Negation":NegationTT,"Disjunction":GeneralizedDisjunctionTT,"Conditional":ConditionalTT,"Biconditional":BiconditionalTT,"Atom":AtomTT}
-		self.f=open(fname)
-		self.result=self.getResult()
-		self.premises=self.getPremises()
-		self.conclusion=self.getConclusion()
-		self.factions=self.getActions()
-		self.f.close()
-		self.tree=TruthTree()
-		self.tree.initialize(self.atoms,self.premises,self.conclusion)
-		
-	def findLineWithJustHeader(self,rs):
-		for line in self.f:
-			for r in rs:
-				if line==r+"\n":
-					return r
-			for k in headers.keys():
-				if not(headers[k] in rs) and line==headers[k]+"\n":
-					self.raiseError()
-		self.raiseError()
-
-	def getResult(self):
-		rs=[headers["Valid"],headers["Invalid"],headers["Neither"]]
-		return self.findLineWithJustHeader(rs)
-		
-	def getPremises(self):
-		self.findLineWithJustHeader([headers["Premises"]])
-		ps=[]
-		for line in self.f:
-			if line=="\n":
-				return ps
-			ps.append(self.findExpression(line))
-
-	def getConclusion(self):
-		self.findLineWithJustHeader([headers["Conclusion"]])
-		for line in self.f:
-			return self.findExpression(line)
-
-	def getActions(self):
-		self.findLineWithJustHeader([headers["Actions"]])
-		ls=""
-		actions=[]
-		for line in self.f:
-			if line=="\n":
-				actions.append(self.parseAction(ls))
-				ls=""
-			else:
-				ls+=line
-		return actions
-
-	def parseAction(self,a):
-		lines=a.split()
-		if len(lines)<4 or len(lines)%2!=0:
-			self.raiseError()
-		if lines[0]!="Action":
-			self.raiseError()
-		opnum=int(lines[1])
-		if lines[2]=='Closedtree':
-			return ForwardClosedLeafAction(lines[3],opnum)
-		if lines[2]=='Opentree':
-			return ForwardOpenLeafAction(lines[3],opnum)
-		if lines[2]=='Srctree':
-			if len(lines)<6:
-				self.raiseError()
-			st=lines[3]
-			if lines[4]!="Srce":
-				raiseError()
-			se=self.findExpression(lines[5])
-			if (len(lines)-6)%4!=0:
-				self.raiseError()
-			dest=[]
-			for i in xrange(6,len(lines),4):
-				if lines[i]!="Dtree":
-					self.raiseError()
-				t=lines[i+1]
-				if lines[i+2]!='De':
-					self.raiseError()
-				e=self.findExpression(lines[i+3])
-				dest.append((e,t))
-			return ForwardAddSplitAction(st,se,dest,opnum)
-
-	def raiseError(self):
-		raise IOError('Invalid Input File')
-		
+				
 #Prints the tree assuming this is the root
 def printTruthTree(tree):
 	if tree.parent!=None:

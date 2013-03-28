@@ -489,6 +489,7 @@ class Universal(Expression):
 		ex.parexpr=self
 		self.expr=ex
 		self.con=bcon
+		self.con.parexpr=self
 
 	def getOperator(self,simp=False):
 		if simp:
@@ -501,7 +502,7 @@ class Universal(Expression):
 
 	def equals(self,ex):
 		if ex.getOperator()==self.getOperator():
-			return self.expr.equals(self.ex) and self.con.equals(ex.con)
+			return self.expr.equals(ex.expr) and self.con.equals(ex.con)
 		return False
 
 	def replaceBound(self,ubon):
@@ -522,6 +523,7 @@ class Existential(Expression):
 		ex.parexpr=self
 		self.expr=ex
 		self.con=bcon
+		self.con.parexpr=self
 
 	def getOperator(self,simp=False):
 		if simp:
@@ -541,7 +543,7 @@ class Existential(Expression):
 
 	def equals(self,ex):
 		if ex.getOperator()==self.getOperator():
-			return self.expr.equals(self.ex) and self.con.equals(ex.con)
+			return self.expr.equals(ex.expr) and self.con.equals(ex.con)
 		return False
 
 	def toList(self):
@@ -671,7 +673,30 @@ class BoundConstant:
 		return self.name
 
 	def equals(self,con):
-		return self==con
+		if con.isBound():
+			return self.depth()==con.depth()
+		return False
+
+	def depth(self):
+		expr=self.parexpr
+		uni= expr.getOperator()==con.getUnicodeUniversalOperator()
+		s=0
+		while True:
+			expr=expr.expr
+			if uni and expr.getOperator()==con.getUnicodeUniversalOperator():
+				continue
+			if not uni and expr.getOperator()==con.getUnicodeUniversalOperator():
+				uni=not uni
+				s+=1
+				continue
+			if not uni and expr.getOperator()==con.getUnicodeExistentialOperator():
+				continue
+			if uni and expr.getOperator()==con.getUnicodeExistentialOperator():
+				uni=not uni
+				s+=1
+				continue
+			break
+		return s
 
 	def isBound(self):
 		return True

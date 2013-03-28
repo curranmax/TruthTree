@@ -8,6 +8,7 @@ from logicdefintions import *
 uoperators=con.getSimpleUnaryOperators()
 #Binary have an expression to the right and left of the expression
 boperators=con.getSimpleBinaryOperators()
+commentstring="//"
 
 #Reads in an arguement file and parses the strings into objects
 #***************************************IMPORTANT***************************************
@@ -32,10 +33,14 @@ class LogicReader:
 			expr=line
 			if expr=="\n":
 				break
-			self.expressions.append(self.findExpression(expr,[]))
+			expr=self.removeComments(expr)
+			if expr=="":
+				continue
+			self.expressions.append(self.findExpression(expr))
+
 		f.close()
 	#Parses a string into an expression, ensuring that atoms are shared
-	def findExpression(self,expression,bound):
+	def findExpression(self,expression,bound=[]):
 		#gets rid of any whitespace
 		nspace=expression.split()
 		expression=""
@@ -206,6 +211,11 @@ class LogicReader:
 		#Nothing found thus error
 		raise IOError('Invalid Input File')
 
+	def removeComments(self,expression):
+		com=expression.find(commentstring) 
+		if com==-1:
+			return expression
+		return expression[:com]
 #Uses the find expression of LogicReader to parse single strings
 #Not really necessary, but it just separates the two operations from each other
 #Really inheritance should be flipped, b/c the filereader uses the stringparser, but I wrote the filereader first
@@ -224,7 +234,6 @@ class MultiLogicReader(LogicReader):
 	def __init__(self,fname,constructors=None,atoms=[]):
 		self.atoms=atoms
 		self.expressions=[]
-		self.comments=[]
 		self.unboundconstants=[]
 		self.allunboundconstants=[]
 		self.boundencounetered=[]
@@ -236,15 +245,10 @@ class MultiLogicReader(LogicReader):
 		#Parses each line into an expression by calling findExpression on each line
 		f=open(fname)
 		t=[]
-		com=""
 		for line in f:
 			expr=line
-			if expr[:2]=='//':
-				com+=expr[2:]
-				continue
 			if expr=="\n":
 				self.expressions.append(t)
-				self.comments.append(com)
 				self.allunboundconstants.append(list(self.unboundconstants))
 				self.unboundconstants=[]
 				self.boundencounetered=[]
@@ -252,5 +256,36 @@ class MultiLogicReader(LogicReader):
 				com=""
 				t=[]
 				continue
+			expr=self.removeComments(expr)
+			if expr=='':
+				continue
 			t.append(self.findExpression(expr,[]))
+		f.close()
+
+class OffsetLogicReader(LogicReader):
+	def __init__(self,fname,offset,constructors=None,atoms=[],unboundconstants=[]):
+		self.atoms=atoms
+		self.expressions=[]
+		self.unboundconstants=unboundconstants
+		self.boundencounetered=[]
+		if constructors==None:
+			#Default constructor
+			self.constructors={"Conjunction":GeneralizedConjunction,"Negation":Negation,"Disjunction":GeneralizedDisjunction,"Conditional":Conditional,"Biconditional":Biconditional,"Atom":Atom,"FOAtom":FOAtom,"UnBoundConstant":UnBoundConstant,"BoundConstant":BoundConstant,"Universal":Universal,"Existential":Existential}
+		else:
+			self.constructors=constructors
+		f=open(fname)
+		com=""
+		num=0
+		for line in f:
+			expr=line
+			if expr=="\n":
+				if num==offset-1:
+					break
+				num+=1
+				continue
+			if num==offset-1:
+				expr=self.removeComments(expr)
+				if expr=='':
+					continue
+				self.expressions.append(self.findExpression(expr,[]))
 		f.close()

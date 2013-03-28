@@ -122,7 +122,7 @@ class TruthTreeMake(TruthTree,Label):
 	def computePosition(self):
 		xmin,xmax=self.getBounds()
 		if self.isLeaf():
-			x=xmin
+			x=xming
 		else:
 			x=(xmax-xmin+self.rchild.getMaxWidth()-self.lchild.getMaxWidth())/2-self.width/2
 		y=self.getCeiling()+self.guiparent.hpadding

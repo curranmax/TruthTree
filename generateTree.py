@@ -25,14 +25,11 @@ if exprnum==None:
 		ttree.setPsandC(es,reader.allunboundconstants[i])
 		ttree.run()
 		ttree.printValidity(str(i+1)+")")
-		#print reader.comments[i]
-		#ttree.printTree()
 else:
 	ttree=TotalTruthTree()
 	ttree.setPsandC(reader.expressions[exprnum],reader.allunboundconstants[exprnum])
 	ttree.run()
 	ttree.printValidity(str(exprnum+1)+")")
-	#print reader.comments[exprnum]
 	ttree.printTree()
 	if ofile!=None:
 		ttree.writeTree(ofile)

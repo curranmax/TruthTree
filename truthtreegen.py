@@ -9,16 +9,18 @@ class ExpressionGenTT(ExpressionTT):
 
 	#Splits the expression for generating trees
 	#marks the number of the split as well
-	def splitExpressionWithOptions(self,ten=False,addoptions=None):
+	def splitExpressionWithOptions(self,ten=False,addoptions=None,getOpnum=False):
 		if ten:
 			if self.tensplit:
 				return [[]]
 			self.tensplit=self.doneSplitting(ten)
 			return self.ttevaluate(ten,addoptions)
-		self.setOpnum()			
+		op=self.setOpnum()			
 		if self.split:
 			return [[]]
 		self.split=self.doneSplitting(ten)
+		if getOpnum:
+			return (self.ttevaluate(ten,addoptions),op)
 		return self.ttevaluate(ten,addoptions)
 
 	def clearTenative(self):
@@ -33,15 +35,19 @@ class ExpressionGenTT(ExpressionTT):
 		return True
 
 	def setOpnum(self):
-		global gopnum
-		self.opnum=gopnum
-		gopnum+=1
+		self.opnum=gopnum[0]
+		gopnum[0]+=1
+		return self.opnum
 
 	def getPossibleSplits(self,ten=False):
 		return [None]
 
 	def generateVersion(self):
 		return False
+
+	def setToSplit(self,addoptions):
+		self.split=True
+		return self.setOpnum()
 
 class NegationGenTT(NegationTT,ExpressionGenTT):
 	def __init__(self,ex):
@@ -176,12 +182,15 @@ class UniversalGenTT(UniversalTT,ExpressionGenTT):
 
 	def ttevaluate(self,ten=False,addoptions=None):
 		t=self.treesrc.getTotal()
+		addCon=self.treesrc.automaticAdd()
 		if ten:
-			self.tencons.append(addoptions)
+			if addCon:
+				self.tencons.append(addoptions)
 			if len(t.tenunboundconstants+t.unboundconstants)==0:
 				self.treesrc.addUnboundConstants(addoptions,ten)
 		else:
-			self.usedcons.append(addoptions)
+			if addCon:
+				self.usedcons.append(addoptions)
 			if len(t.unboundconstants)==0:
 				self.treesrc.addUnboundConstants(addoptions,ten)
 		return [[self.replaceBound(addoptions)]]
@@ -214,9 +223,9 @@ class UniversalGenTT(UniversalTT,ExpressionGenTT):
 		self.tencons=[]
 
 	def setOpnum(self):
-		global gopnum
-		self.opnums.append(gopnum)
-		gopnum+=1
+		self.opnums.append(gopnum[0])
+		gopnum[0]+=1
+		return self.opnums[-1]
 
 	def getPossibleSplits(self,ten=False):
 		cons=self.treesrc.getUnboundConstants(self)
@@ -236,6 +245,10 @@ class UniversalGenTT(UniversalTT,ExpressionGenTT):
 				rcons.append(c)
 		return rcons
 
+	def setToSplit(self,addoptions):
+		self.usedcons.append(addoptions)
+		return self.setOpnum()
+
 class ExistentialGenTT(ExistentialTT,ExpressionGenTT):
 	def __init__(self,ex,bcon):
 		ExistentialTT.__init__(self,ex,bcon)
@@ -247,10 +260,16 @@ class ExistentialGenTT(ExistentialTT,ExpressionGenTT):
 			self.treesrc.addUnboundConstants(addoptions,ten)
 		else:
 			self.treesrc.addUnboundConstants(addoptions,ten)
+			self.usedcon=addoptions
 		return [[self.replaceBound(addoptions)]]
 
 	def getPossibleSplits(self,ten=False):
 		return [self.treesrc.getNewUnboundConstant(ten)]
+
+	def setToSplit(self,addoptions):
+		self.usedcon=addoptions
+		self.split=True
+		return self.setOpnum()
 
 class AtomGenTT(AtomTT,ExpressionGenTT):
 	def __init__(self,name):
@@ -281,8 +300,7 @@ class TotalTruthTree:
 		self.infinite=False
 		
 	def run(self):
-		global gopnum
-		gopnum=1
+		gopnum[0]=1
 		self.top.run()
 
 	def printTree(self):
@@ -292,12 +310,14 @@ class TotalTruthTree:
 		writeTreeToFile(self.top,ofname)
 
 	def setPsandC(self,es,cons):
-		for e in es:
+		for e in es[:-1]:
 			e.treesrc=self.top
 		self.top.premises=list(es[:-1])
 		self.top.conclusion=es[-1]
 		self.top.expressions=list(es[:-1])
-		self.top.expressions.append(NegationGenTT(es[-1]))
+		conclusion=NegationGenTT(es[-1])
+		conclusion.treesrc=self.top
+		self.top.expressions.append(conclusion)
 		self.unboundconstants=list(cons)
 
 	def printValidity(self,i=""):
@@ -324,8 +344,9 @@ class TruthTreeGen(TruthTree):
 			if len(possplits)==0:
 				return
 			(e,src,addop)=self.findBestSplit(possplits)
-			dest=src.addSplit(e.splitExpressionWithOptions(ten=False,addoptions=addop))
-			self.actions.append(AddSplitAction(src,e,dest,addop))
+			(nes,opnum)=e.splitExpressionWithOptions(ten=False,addoptions=addop,getOpnum=True)
+			dest=src.addSplit(nes)
+			self.actions.append(AddSplitAction(src,e,dest,addop,opnum))
 		self.total.infinite=True
 
 	def allClosed(self,ten=False):
@@ -367,7 +388,6 @@ class TruthTreeGen(TruthTree):
 		self.expressions.append(c)
 
 	def closedLeaf(self,ten=False):
-		global gopnum
 		if not self.isLeaf():
 			return False
 
@@ -386,8 +406,8 @@ class TruthTreeGen(TruthTree):
 						if self.isContradiction(e,a):
 							if not ten:
 								if self.opnum==0:
-									self.opnum=gopnum
-									gopnum+=1
+									self.opnum=gopnum[0]
+									gopnum[0]+=1
 								self.addActionToTop(ClosedLeafAction(self))
 								self.closed=True
 							return True
@@ -400,7 +420,6 @@ class TruthTreeGen(TruthTree):
 		return False
 
 	def openLeaf(self,ten=False):
-		global gopnum
 		if not self.isLeaf():
 			return False
 
@@ -428,8 +447,8 @@ class TruthTreeGen(TruthTree):
 				break
 		if not ten:
 			if(self.opnum==0):
-				self.opnum=gopnum
-				gopnum+=1
+				self.opnum=gopnum[0]
+				gopnum[0]+=1
 			self.addActionToTop(OpenLeafAction(self))
 			self.open=True
 		return True
@@ -465,7 +484,7 @@ class TruthTreeGen(TruthTree):
 		bestv=None
 		universalbestv=None
 		for (ps,src,addop) in possplits:
-			nes=ps.splitExpressionWithOptions(ten=True,addoptions=addop)
+			nes=ps.splitExpressionWithOptions(ten=True,addoptions=addop,getOpnum=False)
 			src.addSplit(nes,True)
 			v=self.countLeafsAndTotal()
 			if self.anyOpen(True):
@@ -512,7 +531,6 @@ class TruthTreeGen(TruthTree):
 		else:
 			mincons=min([len(ps.usedcons) for (ps,src,addop) in universalbestchoices])
 			return [(ps,src,addop) for (ps,src,addop) in universalbestchoices if len(ps.usedcons)==mincons][0]
-
 
 	def getTotal(self):
 		p=self
@@ -565,5 +583,75 @@ class TruthTreeGen(TruthTree):
 		for e in self.expressions:
 			ubc+=e.getUnboundConstants()
 		return list(set(ubc))
+
+	def automaticAdd(self):
+		return True
+
+	#Takes a list of list of expressions and adds that split
+	def addSplit(self,nes,ten=False):
+		#If this is a closed leaf, then nothing happens
+		#If the leaf is open, then no splits should have possible to make anyway
+		if self.closedLeaf(ten):
+			#The return is a list of the tree sections which added any expressions
+			return []
+		if len(nes)==1:
+			#Addes the expressions to a leave
+			if self.isLeaf():
+				d=[]
+				if ten:
+					for e in nes[0]:
+						e.treesrc=self
+						self.tenativeExpressions.append(e)
+				else:
+					for e in nes[0]:
+						e.treesrc=self
+						self.expressions.append(e)
+						d.append((e,self))
+				return d
+			else:
+				#Otherwise the expressions must be added to both children
+				#The copying gets rid of any weird things, but the special funtion is used to ensure that all AtomTT's are still consistent
+				d1=self.rchild.addSplit(copyListOfExpressions(nes),ten)
+				d2=self.lchild.addSplit(copyListOfExpressions(nes),ten)
+				if not ten:
+					return d1+d2
+		#Same but when child treees must be made
+		if len(nes)==2:
+			if self.rchild==None and self.lchild==None:
+				self.addChildren(ten)
+				d1=self.rchild.addSplit([nes[0]],ten)
+				d2=self.lchild.addSplit([nes[1]],ten)
+			else:
+				d1=self.rchild.addSplit(copyListOfExpressions(nes),ten)
+				d2=self.lchild.addSplit(copyListOfExpressions(nes),ten)
+			if not ten:
+				return d1+d2
+
+	#gets all expressions that can be split and the tree sections they are in
+	def getPossibleSplits(self):
+		if self.closed or self.open:
+			return []
+		possplits=[(e,self) for e in self.expressions if e.canSplit()]
+		if self.rchild!=None:
+			possplits+=self.rchild.getPossibleSplits()+self.lchild.getPossibleSplits()
+		return possplits
+
+	#Returns a list of all Truth Tree atoms that are reachable form a tree section
+	def getAllReachableAtoms(self):
+		atoms=[e for e in self.expressions if e.isAtom()]
+		if self.parent!=None:
+			atoms+=self.parent.getAllReachableAtoms()
+		return atoms
+
+	#Gets statistics of the tree as a whole, used to determine the best split so always uses tenative data
+	def countLeafsAndTotal(self):
+		if self.isLeaf():
+			if not self.closedLeaf(True) and not self.openLeaf(True):
+				return (1,1,1)
+			return (0,1,1)
+		else:
+			ru,rl,rt=self.rchild.countLeafsAndTotal()
+			lu,ll,lt=self.lchild.countLeafsAndTotal()
+			return (ru+lu,rl+ll,rt+lt+1)
 
 cop.cons={"Conjunction":GeneralizedConjunctionGenTT,"Negation":NegationGenTT,"Disjunction":GeneralizedDisjunctionGenTT,"Conditional":ConditionalGenTT,"Biconditional":BiconditionalGenTT,"FOAtom":FOAtomGenTT,"Universal":UniversalGenTT,"Existential":ExistentialGenTT}

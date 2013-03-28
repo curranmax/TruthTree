@@ -1,15 +1,8 @@
---equal() compares structure not just pointer
---Generalized Conjunction and Disjunction(Either multiple possible splits or n number of children)
---Actions
---Output
 --Undo/Redo
 --Input
---Recreate
---Check while recreating 
-
 
 --Generalized/Not Generalized Equivalence
 
 --Multi-level tenative add(Useful with quantifiers, because they usually take 2 or more steps to have an affect)
---Predicates and constants i.e. P(a) is different from P(b)
---Add quantifiers (@ (for all),? (symbol for there exists in plain text))
+
+--GUI
