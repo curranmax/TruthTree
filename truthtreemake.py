@@ -2,6 +2,8 @@ from truthtree import *
 from Tkinter import *
 from tkFont import Font
 
+
+#LOADING AND SAVING
 class TotalTruthTreeMake(Canvas):
 	def __init__(self,guiparent,reader,w=500,h=500):
 		self.guiparent=guiparent
@@ -113,6 +115,12 @@ class TotalTruthTreeMake(Canvas):
 		self.drawLines(t.rchild)
 		self.drawLines(t.lchild)
 
+	def save(self,fname):
+		pass
+
+	def load(self,fname):
+		pass
+
 
 class TruthTreeMake(TruthTree,Label):
 	def __init__(self,parent=None,ten=False,total=None,guiparent=None):
@@ -165,7 +173,6 @@ class TruthTreeMake(TruthTree,Label):
 			b.grid(row=i,column=1,padx=0,pady=0,sticky=E)
 		self.width+=self.guiparent.buttonfont.measure(self.splitbuttontext)+4
 		self.height=10+(len(self.expressions))*35
-
 
 	def computePosition(self):
 		xmin,xmax=self.getBounds()
@@ -228,7 +235,7 @@ class TruthTreeMake(TruthTree,Label):
 def main():
 	root = Tk()
 	reader=OffsetLogicReader('validargs.txt',4,{"Conjunction":GeneralizedConjunctionTT,"Negation":NegationTT,"Disjunction":GeneralizedDisjunctionTT,"Conditional":ConditionalTT,"Biconditional":BiconditionalTT,"Atom":AtomTT,"FOAtom":FOAtomTT,"UnBoundConstant":UnBoundConstant,"BoundConstant":BoundConstant,"Universal":UniversalTT,"Existential":ExistentialTT})
-	tree=TotalTruthTreeMake(root,reader,w=root.winfo_screenwidth()/2-100,h=root.winfo_screenheight()-100)
+	tree=TotalTruthTreeMake(root,reader,w=root.winfo_screenwidth()-100,h=root.winfo_screenheight()-100)
 	root.mainloop()  
 
 

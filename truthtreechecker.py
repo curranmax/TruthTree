@@ -6,7 +6,9 @@ from truthtreegen import *
 #They store actual expression objects though
 class ForwardAddSplitAction:
 	def __init__(self,srctree,srce,dests,n,addop):
+		#'hrlrlrlrlrl...'
 		self.srctree=srctree
+		#Expression object
 		self.srce=srce
 		self.dests=dests
 		self.opnum=n
@@ -143,7 +145,7 @@ class TotalCheckTree(TotalTruthTree):
 				if not all(matched):
 					return False
 				for ne in destdict[k]:
-						toadd.append((ne,k))
+					toadd.append((ne,k))
 		elif len(sp)==2:
 			for e,d in fa.dests:
 				dest=self.top.getTreeSection(d[:-1])
