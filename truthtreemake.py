@@ -13,9 +13,7 @@ class TotalTruthTreeMake(Canvas):
 		Canvas.__init__(self, guiparent,background="#333",width=self.width,height=self.height)
 		self.guiparent.geometry(str(self.width)+"x"+str(self.height)+"+300+300")
 		self.userprediction=userpredictions['Neither']
-		self.top=TruthTreeMake(total=self,guiparent=self)
-		self.loadActionFile(initfile)
-		self.save('out2.txt')
+		self.load(initfile,initoffset)
 		self.font=Font(family="Helvetica",size="16")
 		self.buttonfont=Font(family="Helvetica",size="12")
 		self.hpadding=40
