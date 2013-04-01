@@ -24,15 +24,23 @@ class ExpressionTT:
 		self.tensplit=self.isAtom()
 		self.treesrc=None
 
-	def userSplit(self,op=None):
+	def userSplit(self,op=None,adop=None):
 		self.split=True
+		self.setOpnum(op)
+		if adop!=None:
+			self.userAdop(adop)
+		return True
+
+	def userAdop(self,adop):
+		pass
+
+	def setOpnum(self,op):
 		if op==None:
 			self.opnum=gopnum[0]
 			gopnum[0]+=1
 		else:
 			self.opnum=op
 			gopnum[0]=op+1
-		return True
 
 
 #***********IMPORTANT******************
@@ -161,6 +169,17 @@ class UniversalTT(Universal,ExpressionTT):
 	def isAtom(self):
 		return False
 
+	def userAdop(self,adop):
+		self.usedcons.append(adop)
+
+	def setOpnum(self,op):
+		if op==None:
+			self.opnums.append(gopnum[0])
+			gopnum[0]+=1
+		else:
+			self.opnums.append(op)
+			gopnum[0]=op+1
+
 	def toString(self,outside=False,simp=False):
 		s=Universal.toString(self,simp)
 		if outside:
@@ -176,6 +195,9 @@ class ExistentialTT(Existential,ExpressionTT):
 
 	def isAtom(self):
 		return False
+
+	def userAdop(self,adop):
+		self.usedcon=adop
 
 	def toString(self,outside=False,simp=False):
 		s=Existential.toString(self,simp)

@@ -4,7 +4,6 @@ from tkFont import Font
 
 userpredictions={'Neither':'N','Valid':'V','Invalid':'I'}
 
-#LOADING AND SAVING
 class TotalTruthTreeMake(Canvas):
 	def __init__(self,guiparent,initfile,initoffset=None,w=500,h=500):
 		self.guiparent=guiparent
@@ -14,7 +13,8 @@ class TotalTruthTreeMake(Canvas):
 		Canvas.__init__(self, guiparent,background="#333",width=self.width,height=self.height)
 		self.guiparent.geometry(str(self.width)+"x"+str(self.height)+"+300+300")
 		self.userprediction=userpredictions['Neither']
-		self.load(initfile,initoffset)
+		self.top=TruthTreeMake(total=self,guiparent=self)
+		self.loadActionFile(initfile)
 		self.save('out2.txt')
 		self.font=Font(family="Helvetica",size="16")
 		self.buttonfont=Font(family="Helvetica",size="12")
@@ -93,10 +93,15 @@ class TotalTruthTreeMake(Canvas):
 		srctree=self.top.getTreeSection(fa.srctree)
 		if srctree==None:
 			raise Exception("Tree Section doesn't exist")
-		srce=fa.srce
+		srce=None
+		for e in srctree.expressions:
+			if e.equals(fa.srce):
+				srce=e
+		if srce==None:
+			raise Exception("Expression doesn't exist")
 		opnum=fa.opnum
 		addop=self.parseAddOp(fa.addop,srce)
-		srce.userSplit(op=opnum)
+		srce.userSplit(op=opnum,adop=addop)
 		dests=[]
 		for e,d in fa.dests:
 			dt=self.top.getTreeSection(d)
@@ -197,7 +202,6 @@ class TotalTruthTreeMake(Canvas):
 			reader=LogicReader(fname,c)
 		self.intialize(argreader=reader)
 
-
 class TruthTreeMake(TruthTree,Label):
 	def __init__(self,parent=None,ten=False,total=None,guiparent=None):
 		TruthTree.__init__(self,parent,ten)
@@ -233,10 +237,10 @@ class TruthTreeMake(TruthTree,Label):
 	def updateText(self):
 		self.resetVariables()
 		for i,e in enumerate(self.expressions):
-			w=self.guiparent.font.measure(e.toString())
+			w=self.guiparent.font.measure(e.toString(outside=True))
 			if w>self.width:
 				self.width=w
-			l=Label(self,text=e.toString(),background="white",font=self.guiparent.font)
+			l=Label(self,text=e.toString(outside=True),background="white",font=self.guiparent.font)
 			l.grid(row=i,padx=0,pady=0)
 			self.labels.append(l)
 		self.width+=2*self.guiparent.borderwidth
@@ -308,7 +312,7 @@ class TruthTreeMake(TruthTree,Label):
 
 def main():
 	root = Tk()
-	tree=TotalTruthTreeMake(root,'validargs.txt',initoffset=4,w=root.winfo_screenwidth()-100,h=root.winfo_screenheight()-100)
+	tree=TotalTruthTreeMake(root,'out.txt',w=root.winfo_screenwidth()-100,h=root.winfo_screenheight()-100)
 	root.mainloop()  
 
 
