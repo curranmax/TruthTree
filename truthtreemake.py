@@ -2,59 +2,20 @@ from truthtree import *
 from Tkinter import *
 from tkFont import Font
 
+userpredictions={'Neither':'N','Valid':'V','Invalid':'I'}
 
 #LOADING AND SAVING
 class TotalTruthTreeMake(Canvas):
-	def __init__(self,guiparent,reader,w=500,h=500):
+	def __init__(self,guiparent,initfile,initoffset=None,w=500,h=500):
 		self.guiparent=guiparent
 		self.borderwidth=5
 		self.width=w
 		self.height=h
 		Canvas.__init__(self, guiparent,background="#333",width=self.width,height=self.height)
 		self.guiparent.geometry(str(self.width)+"x"+str(self.height)+"+300+300")
-		self.top=TruthTreeMake(total=self,guiparent=self)
-		self.intialize(reader)
-
-		self.top.addChildren()
-		P=FOAtomTT(Atom('P'),[])
-		self.top.rchild.expressions.append(P)
-		self.top.lchild.expressions.append(P)
-		self.top.rchild.addChildren()
-		self.top.lchild.addChildren()
-		self.top.rchild.rchild.expressions.append(P)
-		self.top.rchild.lchild.expressions.append(P)
-		self.top.lchild.rchild.expressions.append(P)
-		self.top.lchild.lchild.expressions.append(P)
-		self.top.rchild.lchild.expressions.append(P)
-		self.top.lchild.rchild.expressions.append(P)
-		self.top.lchild.lchild.expressions.append(P)
-		self.top.lchild.rchild.expressions.append(P)
-		self.top.lchild.lchild.expressions.append(P)
-		self.top.lchild.rchild.expressions.append(P)
-		self.top.lchild.lchild.expressions.append(P)
-		self.top.lchild.rchild.expressions.append(P)
-		self.top.lchild.lchild.expressions.append(P)
-		self.top.lchild.rchild.expressions.append(P)
-		self.top.lchild.lchild.expressions.append(GeneralizedConjunctionTT([P,P,P,P,P,P,P]))
-		self.top.rchild.rchild.addChildren()
-		self.top.rchild.lchild.addChildren()
-		self.top.lchild.rchild.addChildren()
-		self.top.lchild.lchild.addChildren()
-		self.top.rchild.rchild.rchild.expressions.append(P)
-		self.top.rchild.rchild.lchild.expressions.append(P)
-		self.top.rchild.lchild.rchild.expressions.append(P)
-		self.top.rchild.lchild.lchild.expressions.append(P)
-		self.top.lchild.rchild.rchild.expressions.append(P)
-		self.top.lchild.rchild.lchild.expressions.append(P)
-		self.top.lchild.lchild.rchild.expressions.append(P)
-		self.top.lchild.lchild.lchild.expressions.append(P)
-		self.top.lchild.rchild.rchild.expressions.append(P)
-		self.top.lchild.rchild.lchild.expressions.append(P)
-		self.top.lchild.lchild.rchild.expressions.append(P)
-		self.top.lchild.lchild.lchild.expressions.append(P)
-
-		
-		
+		self.userprediction=userpredictions['Neither']
+		self.load(initfile,initoffset)
+		self.save('out2.txt')
 		self.font=Font(family="Helvetica",size="16")
 		self.buttonfont=Font(family="Helvetica",size="12")
 		self.hpadding=40
@@ -76,18 +37,106 @@ class TotalTruthTreeMake(Canvas):
 			t.place(x=x,y=y)
 		self.drawLines()
 
-	def intialize(self,reader):
-		es=list(reader.expressions)
-		cons=list(reader.unboundconstants)
-		for e in es[:-1]:
-			e.treesrc=self.top
-		self.top.premises=list(es[:-1])
-		self.top.conclusion=es[-1]
-		self.top.expressions=list(es[:-1])
-		conclusion=NegationTT(es[-1])
-		conclusion.treesrc=self.top
-		self.top.expressions.append(conclusion)
-		self.unboundconstants=list(cons)
+	def intialize(self,argreader=None,actreader=None):
+		if argreader!=None:
+			es=list(argreader.expressions)
+			cons=list(argreader.unboundconstants)
+			for e in es[:-1]:
+				e.treesrc=self.top
+			self.top.premises=list(es[:-1])
+			self.top.conclusion=es[-1]
+			self.top.expressions=list(es[:-1])
+			conclusion=NegationTT(es[-1])
+			conclusion.treesrc=self.top
+			self.top.expressions.append(conclusion)
+			self.unboundconstants=list(cons)
+		elif actreader!=None:
+			self.userprediction=actreader.result
+			ps=actreader.premises
+			for p in ps:
+				p.treesrc=self.top
+			c=actreader.conclusion
+			cons=actreader.unboundconstantsinarguement
+			fas=actreader.factions
+			self.top.premises=list(ps)
+			self.top.conclusion=c
+			nc=NegationTT(c)
+			nc.treesrc=self.top
+			self.top.expressions=ps+[nc]
+			self.unboundconstants=list(cons)
+			for fa in fas:
+				self.applyForwardAction(fa)
+		else:
+			raise Exception('None input specified')
+
+	def applyForwardAction(self,fa):
+		if isinstance(fa,ForwardOpenLeafAction):
+			return self.applyForwardOpenLeafAction(fa)
+		if isinstance(fa,ForwardClosedLeafAction):
+			return self.applyForwardClosedLeafAction(fa)
+		if isinstance(fa,ForwardAddSplitAction):
+			return self.applyForwardAddSplitAction(fa)
+
+	def applyForwardOpenLeafAction(self,fa):
+		ts=self.top.getTreeSection(fa.tree)
+		if ts==None:
+			raise Exception('Invalid Tree Section')
+		ts.setOpen(fa.opnum)
+
+	def applyForwardClosedLeafAction(self,fa):
+		ts=self.top.getTreeSection(fa.tree)
+		if ts==None:
+			raise Exception('Invalid Tree Section')
+		ts.setClosed(fa.opnum)
+
+	def applyForwardAddSplitAction(self,fa):
+		srctree=self.top.getTreeSection(fa.srctree)
+		if srctree==None:
+			raise Exception("Tree Section doesn't exist")
+		srce=fa.srce
+		opnum=fa.opnum
+		addop=self.parseAddOp(fa.addop,srce)
+		srce.userSplit(op=opnum)
+		dests=[]
+		for e,d in fa.dests:
+			dt=self.top.getTreeSection(d)
+			if dt==None:
+				pdt=self.top.getTreeSection(d[:-1])
+				if pdt==None:
+					raise Exception("Tree Section doesn't exist")
+				pdt.addChildren()
+				dt=self.top.getTreeSection(d)
+			dt.expressions.append(e)
+			e.treesrc=dt
+			dests.append((e,dt))
+		self.top.addActionToTop(AddSplitAction(srctree,srce,dests,addop,opnum))
+
+	#Simplified version from checker
+	def parseAddOp(self,op,e):
+		#Returns version stored in the overall unboundconstants list, if somehow it is not in there, creates a new one
+		if e.getOperator()==con.getUnicodeExistentialOperator() or e.getOperator()==con.getUnicodeUniversalOperator():
+			newuc=None
+			for uc in self.unboundconstants:
+				if uc.name==op:
+					newuc=uc
+					break
+			if newuc==None:
+				newuc=UnBoundConstant(op)
+				self.unboundconstants.append(newuc)
+				return newuc
+			return newuc
+		#parses the list of ints if there is one
+		elif e.getOperator()==con.getUnicodeDisjunctionOperator() or (e.getOperator()==con.getUnicodeNegationOperator() and e.expr.getOperator()==con.getUnicodeConjunctionOperator()):
+			if e.getOperator()==con.getUnicodeDisjunctionOperator():
+				es=e.toList()
+			if e.getOperator()==con.getUnicodeNegationOperator() and e.expr.getOperator()==con.getUnicodeConjunctionOperator():
+				es=e.expr.toList()
+			if len(es)==2:
+				return None
+			ns=[int(v) for v in op.split(',')]
+			return ns
+		else:
+			return None
 
 	def drawLines(self,t=None):
 		if t==None:
@@ -116,10 +165,37 @@ class TotalTruthTreeMake(Canvas):
 		self.drawLines(t.lchild)
 
 	def save(self,fname):
-		pass
+		writeTreeToFile(self.top,fname,append=False,result=self.userprediction)
 
-	def load(self,fname):
-		pass
+	#Tries to load the file, first by trying if its an action file, then if it is an arguement file
+	def load(self,fname,offset=None):
+		#check if things have been saved before erasing existing tree
+		self.top=TruthTreeMake(total=self,guiparent=self)
+		if offset==None:
+			try:
+				self.loadActionFile(fname)
+				return
+			except Exception, e:
+				pass
+		try:
+			self.loadArguementFile(fname,offset)
+			return
+		except Exception, e:
+			raise e
+		#Make this a pop up if you can
+		print "Invalid File"
+
+	def loadActionFile(self,fname):
+		actionreader=TruthTreeReader(fname)
+		self.intialize(actreader=actionreader)
+
+	def loadArguementFile(self,fname,offset=None):
+		c={"Conjunction":GeneralizedConjunctionTT,"Negation":NegationTT,"Disjunction":GeneralizedDisjunctionTT,"Conditional":ConditionalTT,"Biconditional":BiconditionalTT,"Atom":AtomTT,"FOAtom":FOAtomTT,"UnBoundConstant":UnBoundConstant,"BoundConstant":BoundConstant,"Universal":UniversalTT,"Existential":ExistentialTT}
+		if offset!=None:
+			reader=OffsetLogicReader(fname,offset,c)
+		else:
+			reader=LogicReader(fname,c)
+		self.intialize(argreader=reader)
 
 
 class TruthTreeMake(TruthTree,Label):
@@ -178,9 +254,8 @@ class TruthTreeMake(TruthTree,Label):
 		xmin,xmax=self.getBounds()
 		if self.position!=None:
 			return self.position
-		print self.actionString(),xmin,xmax
 		if self.isLeaf():
-			x=xmin
+			x=(xmax+xmin-self.width)/2
 		else:
 			rw=self.rchild.getMaxWidth()
 			lw=self.lchild.getMaxWidth()
@@ -190,7 +265,6 @@ class TruthTreeMake(TruthTree,Label):
 				x=(xmax+xmin-self.width)/2
 		y=self.getCeiling()+self.guiparent.hpadding
 		self.position=(x,y)
-		print ""
 		return (x,y)
 
 	def getMaxWidth(self):
@@ -234,8 +308,7 @@ class TruthTreeMake(TruthTree,Label):
 
 def main():
 	root = Tk()
-	reader=OffsetLogicReader('validargs.txt',4,{"Conjunction":GeneralizedConjunctionTT,"Negation":NegationTT,"Disjunction":GeneralizedDisjunctionTT,"Conditional":ConditionalTT,"Biconditional":BiconditionalTT,"Atom":AtomTT,"FOAtom":FOAtomTT,"UnBoundConstant":UnBoundConstant,"BoundConstant":BoundConstant,"Universal":UniversalTT,"Existential":ExistentialTT})
-	tree=TotalTruthTreeMake(root,reader,w=root.winfo_screenwidth()-100,h=root.winfo_screenheight()-100)
+	tree=TotalTruthTreeMake(root,'validargs.txt',initoffset=4,w=root.winfo_screenwidth()-100,h=root.winfo_screenheight()-100)
 	root.mainloop()  
 
 

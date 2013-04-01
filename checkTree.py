@@ -2,7 +2,7 @@ from truthtreechecker import *
 import argparse
 
 parser = argparse.ArgumentParser(description='Process data stored in a file')
-parser.add_argument('tfile', metavar='TF', type=str, nargs=1,help='file with the tree data')
+parser.add_argument('tfile', metavar='TF', type=str, nargs=1,help='file with the action data')
 parser.add_argument('checkfile', metavar='CF', type=str, nargs=1,help='file with the arguement the tree should be using')
 parser.add_argument('exprnum', metavar='n', type=int, nargs=1,help='index of file in checkfile')
 

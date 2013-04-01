@@ -24,9 +24,14 @@ class ExpressionTT:
 		self.tensplit=self.isAtom()
 		self.treesrc=None
 
-	def userSplit(self):
-		self.opnum=gopnum[0]
-		gopnum[0]+=1
+	def userSplit(self,op=None):
+		self.split=True
+		if op==None:
+			self.opnum=gopnum[0]
+			gopnum[0]+=1
+		else:
+			self.opnum=op
+			gopnum[0]=op+1
 		return True
 
 
@@ -298,22 +303,30 @@ class TruthTree:
 
 	#Sets a section to closed
 	#This is used when a user is making a tree
-	def setClosed(self):
+	def setClosed(self,op=None):
 		self.addActionToTop(ClosedLeafAction(self))
 		self.closed=True
-		self.opnum=gopnum[0]
-		gopnum[0]+=1
+		if op==None:
+			self.opnum=gopnum[0]
+			gopnum[0]+=1
+		else:
+			self.opnum=op
+			gopnum[0]=op+1
 
 	def anySetToOpen(self):
 		if not self.open and not self.isLeaf():
 			self.open=self.rchild.anySetToOpen() or self.lchild.anySetToOpen()
 		return self.open
 
-	def setOpen(self):
+	def setOpen(self,op=None):
 		self.addActionToTop(OpenLeafAction(self))
 		self.open=True
-		self.opnum=gopnum[0]
-		gopnum[0]+=1
+		if op==None:
+			self.opnum=gopnum[0]
+			gopnum[0]+=1
+		else:
+			self.opnum=op
+			gopnum[0]=op+1
 		
 	#checks if leaf
 	#I probably should use this more, but I do manual checks everywhere which is bad
@@ -446,37 +459,6 @@ class TruthTree:
 				t=t.lchild
 		return t
 
-	#Adds a split specified by the user
-	def userSplit(self,sexpr,desttrees,destes):
-		me=None
-		for e in self.expressions:
-			if sexpr.equals(e):
-				me=e
-				break
-		if me==None:
-			print "No matching expression"
-			return False
-		if not me.userSplit():
-			print "Expression already split"
-			return False
-		ts=[]
-		for i,dt in enumerate(desttrees):
-			t=self.getTreeSection(dt)
-			if t==None:
-				t=self.getTreeSection(dt[:-1])
-				if t==None:
-					print "Invalid destination tree"
-				t.addChildren()
-				t=self.getTreeSection(dt)
-			destes[i].treesrc=t
-			t.expressions.append(destes[i])
-			ts.append((destes[i],t))
-		if self.anyEmptySections():
-			print "Empty Tree Sections"
-			return False
-		self.addActionToTop(AddSplitAction(self,me,ts))
-		return True
-
 	#Makes sure no empty sections were made by user adding things
 	def anyEmptySections(self,s=True):
 		t=self
@@ -579,7 +561,10 @@ def writeTreeToFile(tree,fname,append=False,result=None):
 		else:
 			f.write(headers["Neither"]+"\n")
 	else:
-		f.write(headers[result]+"\n")
+		if len(result)>1:
+			f.write(headers[result]+"\n")
+		else:
+			f.write(result+"\n")
 	f.write(headers["Premises"]+"\n")
 	for p in tree.premises:
 		f.write(p.toString(simp=True)+"\n")
@@ -589,3 +574,139 @@ def writeTreeToFile(tree,fname,append=False,result=None):
 	for a in tree.actions:
 		f.write(a.toString(simp=True)+"\n")
 	f.close()
+
+#Reads in an action file
+#Format
+#I|V|N  //I means invalid arguement, V manes valid and N means neither(I am not sure if i should get rid of this)
+#P      //Premises
+#expressions
+#//Newline indicates end of expressions
+#C      //Conclusion
+#an expression
+#
+#A  	//Actions
+#Action
+#//Newline between actions
+#Action
+#
+#...
+#headers for TruthTreeReader
+#These are the actions are made when an action file is read
+#They can be applied to a tree to replicate the actoin
+#These store strings that can be deciphered to tree objects,
+#They store actual expression objects though
+class ForwardAddSplitAction:
+	def __init__(self,srctree,srce,dests,n,addop):
+		#'hrlrlrlrlrl...'
+		self.srctree=srctree
+		#Expression object
+		self.srce=srce
+		self.dests=dests
+		self.opnum=n
+		self.addop=addop
+
+class ForwardClosedLeafAction:
+	def __init__(self,t,n):
+		self.tree=t
+		self.opnum=n
+
+class ForwardOpenLeafAction:
+	def __init__(self,t,n):
+		self.tree=t
+		self.opnum=n
+
+headers={"Valid":"V","Invalid":"I","Neither":"N","Premises":"P","Conclusion":"C","Actions":"A"}
+class TruthTreeReader(LogicReader):
+	def __init__(self,fname,constructors=None):
+		self.atoms=[]
+		self.unboundconstants=[]
+		self.unboundconstantsinarguement=[]
+		self.boundencounetered=[]
+		if constructors==None:
+			self.constructors={"Conjunction":GeneralizedConjunctionTT,"Negation":NegationTT,"Disjunction":GeneralizedDisjunctionTT,"Conditional":ConditionalTT,"Biconditional":BiconditionalTT,"Atom":AtomTT,"FOAtom":FOAtomTT,"UnBoundConstant":UnBoundConstant,"BoundConstant":BoundConstant,"Universal":UniversalTT,"Existential":ExistentialTT}
+		else:
+			self.constructors=constructors
+		self.f=open(fname)
+		self.result=self.getResult()
+		self.premises=self.getPremises()
+		self.conclusion=self.getConclusion()
+		self.unboundconstantsinarguement=list(self.unboundconstants)
+		self.factions=self.getActions()
+		self.f.close()
+		
+	def findLineWithJustHeader(self,rs):
+		for line in self.f:
+			for r in rs:
+				if line==r+"\n":
+					return r
+			for k in headers.keys():
+				if not(headers[k] in rs) and line==headers[k]+"\n":
+					self.raiseError()
+		self.raiseError()
+
+	def getResult(self):
+		rs=[headers["Valid"],headers["Invalid"],headers["Neither"]]
+		return self.findLineWithJustHeader(rs)
+		
+	def getPremises(self):
+		self.findLineWithJustHeader([headers["Premises"]])
+		ps=[]
+		for line in self.f:
+			if line=="\n":
+				return ps
+			ps.append(self.findExpression(line))
+
+	def getConclusion(self):
+		self.findLineWithJustHeader([headers["Conclusion"]])
+		for line in self.f:
+			return self.findExpression(line)
+
+	def getActions(self):
+		self.findLineWithJustHeader([headers["Actions"]])
+		ls=""
+		actions=[]
+		for line in self.f:
+			if line=="\n":
+				actions.append(self.parseAction(ls))
+				ls=""
+			else:
+				ls+=line
+		return actions
+
+	def parseAction(self,a):
+		lines=a.split()
+		if len(lines)<4 or len(lines)%2!=0:
+			self.raiseError()
+		if lines[0]!="Action":
+			self.raiseError()
+		opnum=int(lines[1])
+		if lines[2]=='Closedtree':
+			return ForwardClosedLeafAction(lines[3],opnum)
+		if lines[2]=='Opentree':
+			return ForwardOpenLeafAction(lines[3],opnum)
+		if lines[2]=='Srctree':
+			if len(lines)<8:
+				self.raiseError()
+			st=lines[3]
+			if lines[4]!="Srce":
+				raiseError()
+			se=self.findExpression(lines[5])
+			if lines[6]!="Srcops":
+				raiseError()
+			sops=lines[7]
+			if (len(lines)-8)%4!=0:
+				self.raiseError()
+			dest=[]
+			for i in xrange(8,len(lines),4):
+				if lines[i]!="Dtree":
+					self.raiseError()
+				t=lines[i+1]
+				if lines[i+2]!='De':
+					self.raiseError()
+				e=self.findExpression(lines[i+3])
+				dest.append((e,t))
+			return ForwardAddSplitAction(st,se,dest,opnum,sops)
+
+	def raiseError(self):
+		raise IOError('Invalid Input File')
+
