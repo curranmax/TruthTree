@@ -1,0 +1,208 @@
+V
+P
+#x(A(x)&@y(B(y)->C(x,y)))
+@x#y(A(x)->B(y))
+
+C
+#x#yC(x,y)
+
+A
+Action 1
+Srctree h
+Srce #x(A(x)&@y(B(y)->C(x,y)))
+Srcops a
+Dtree h
+De A(a)&@y(B(y)->C(a,y))
+
+Action 2
+Srctree h
+Srce ~#x#yC(x,y)
+Srcops None
+Dtree h
+De @x~#yC(x,y)
+
+Action 3
+Srctree h
+Srce A(a)&@y(B(y)->C(a,y))
+Srcops None
+Dtree h
+De A(a)
+Dtree h
+De @y(B(y)->C(a,y))
+
+Action 4
+Srctree h
+Srce @x#y(A(x)->B(y))
+Srcops a
+Dtree h
+De #y(A(a)->B(y))
+
+Action 5
+Srctree h
+Srce #y(A(a)->B(y))
+Srcops b
+Dtree h
+De A(a)->B(b)
+
+Action 6
+Srctree h
+Srce A(a)->B(b)
+Srcops None
+Dtree hr
+De ~A(a)
+Dtree hl
+De B(b)
+
+Action 7
+Closedtree hr
+
+Action 8
+Srctree h
+Srce @x~#yC(x,y)
+Srcops a
+Dtree hl
+De ~#yC(a,y)
+
+Action 9
+Srctree hl
+Srce ~#yC(a,y)
+Srcops None
+Dtree hl
+De @y~C(a,y)
+
+Action 10
+Srctree h
+Srce @y(B(y)->C(a,y))
+Srcops a
+Dtree hl
+De B(a)->C(a,a)
+
+Action 11
+Srctree hl
+Srce B(a)->C(a,a)
+Srcops None
+Dtree hlr
+De ~B(a)
+Dtree hll
+De C(a,a)
+
+Action 12
+Srctree hl
+Srce @y~C(a,y)
+Srcops a
+Dtree hlr
+De ~C(a,a)
+Dtree hll
+De ~C(a,a)
+
+Action 13
+Closedtree hll
+
+Action 14
+Srctree h
+Srce @x#y(A(x)->B(y))
+Srcops b
+Dtree hlr
+De #y(A(b)->B(y))
+
+Action 15
+Srctree hlr
+Srce #y(A(b)->B(y))
+Srcops c
+Dtree hlr
+De A(b)->B(c)
+
+Action 16
+Srctree hlr
+Srce A(b)->B(c)
+Srcops None
+Dtree hlrr
+De ~A(b)
+Dtree hlrl
+De B(c)
+
+Action 17
+Srctree h
+Srce @x~#yC(x,y)
+	Srcops b
+	Dtree hlrr
+	De ~#yC(b,y)
+	Dtree hlrl
+	De ~#yC(b,y)
+
+	Action 18
+	Srctree hlrr
+	Srce ~#yC(b,y)
+	Srcops None
+	Dtree hlrr
+	De @y~C(b,y)
+
+	Action 19
+	Srctree hlrl
+	Srce ~#yC(b,y)
+	Srcops None
+	Dtree hlrl
+	De @y~C(b,y)
+
+	Action 20
+	Srctree hlrr
+	Srce @y~C(b,y)
+	Srcops a
+	Dtree hlrr
+	De ~C(b,a)
+
+	Action 21
+	Srctree hlrl
+	Srce @y~C(b,y)
+	Srcops a
+	Dtree hlrl
+	De ~C(b,a)
+
+	Action 22
+	Srctree h
+	Srce @y(B(y)->C(a,y))
+	Srcops b
+	Dtree hlrr
+	De B(b)->C(a,b)
+	Dtree hlrl
+	De B(b)->C(a,b)
+
+	Action 23
+	Srctree hlrr
+	Srce B(b)->C(a,b)
+	Srcops None
+	Dtree hlrrr
+	De ~B(b)
+	Dtree hlrrl
+	De C(a,b)
+
+	Action 24
+	Closedtree hlrrr
+
+	Action 25
+	Srctree hlrl
+	Srce B(b)->C(a,b)
+	Srcops None
+	Dtree hlrlr
+	De ~B(b)
+	Dtree hlrll
+	De C(a,b)
+
+	Action 26
+	Closedtree hlrlr
+
+	Action 27
+	Srctree hl
+	Srce @y~C(a,y)
+	Srcops b
+	Dtree hlrrl
+	De ~C(a,b)
+	Dtree hlrll
+	De ~C(a,b)
+
+	Action 28
+	Closedtree hlrrl
+
+	Action 29
+	Closedtree hlrll
+
