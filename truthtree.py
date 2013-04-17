@@ -26,21 +26,45 @@ class ExpressionTT:
 
 	def userSplit(self,op=None,adop=None):
 		self.split=True
-		self.setOpnum(op)
+		opnum=self.setOpnum(op)
 		if adop!=None:
 			self.userAdop(adop)
-		return True
+		return opnum
 
 	def userAdop(self,adop):
 		pass
 
-	def setOpnum(self,op):
+	def setOpnum(self,op=None):
 		if op==None:
 			self.opnum=gopnum[0]
 			gopnum[0]+=1
 		else:
 			self.opnum=op
 			gopnum[0]=op+1
+		return self.opnum
+
+	def needAddop(self):
+		return False
+
+	def canUserSplit(self):
+		return self.opnum==0 or not self.split
+
+	def undoSplit(self,addop,op):
+		self.split=False
+		gopnum[0]=op
+		self.opnum=0
+
+	def findSubstitutedConstant(self,expr):
+		slist=self.toList()
+		elist=expr.toList()
+		if len(slist)!=len(elist) or len(slist)==0:
+			return None
+		sl=zip(slist,elist)
+		for s,e in sl:
+			t=s.findSubstitutedConstant(e)
+			if t!=None:
+				return t
+		return None
 
 
 #***********IMPORTANT******************
@@ -71,6 +95,11 @@ class NegationTT(Negation,ExpressionTT):
 		if self.split and self.opnum>0 and outside:
 			s+=" "+checkchar+str(self.opnum)
 		return s
+
+	def needAddop(self):
+		if self.expr.getOperator()==operators['Conjunction'] and self.expr.isGeneralized() and len(self.expr.exs)>2:
+			return True
+		return False
 
 class ConjunctionTT(Conjunction,ExpressionTT):
 	def __init__(self,ex1,ex2):
@@ -130,6 +159,11 @@ class GeneralizedDisjunctionTT(GeneralizedDisjunction,ExpressionTT):
 			s+=" "+checkchar+str(self.opnum)
 		return s
 
+	def needAddop(self):
+		if len(self.exs)>2:
+			return True
+		return False
+
 class ConditionalTT(Conditional,ExpressionTT):
 	def __init__(self,ex1,ex2):
 		Conditional.__init__(self,ex1,ex2)
@@ -174,11 +208,10 @@ class UniversalTT(Universal,ExpressionTT):
 
 	def setOpnum(self,op):
 		if op==None:
-			self.opnums.append(gopnum[0])
-			gopnum[0]+=1
-		else:
-			self.opnums.append(op)
-			gopnum[0]=op+1
+			op=gopnum[0]
+		self.opnums.append(op)
+		gopnum[0]=op+1
+		return op
 
 	def toString(self,outside=False,simp=False):
 		s=Universal.toString(self,simp)
@@ -186,6 +219,22 @@ class UniversalTT(Universal,ExpressionTT):
 			for i,uc in enumerate(self.usedcons):
 				s+=" "+str(self.opnums[i])+"-"+uc.toString()
 		return s
+
+	def needAddop(self):
+		return True
+
+	def canUserSplit(self):
+		return True
+
+	def undoSplit(self,addop,op):
+		self.split=False
+		gopnum[0]=op
+		self.opnums.remove(op)
+		for uc in self.usedcons:
+			if uc.equals(addop):
+				self.usedcons.remove(uc)
+				break
+		self.opnum=0
 
 class ExistentialTT(Existential,ExpressionTT):
 	def __init__(self,ex,bcon):
@@ -204,6 +253,15 @@ class ExistentialTT(Existential,ExpressionTT):
 		if self.split and self.opnum>0 and outside:
 			s+=" "+checkchar+str(self.opnum)+"-"+self.usedcon.toString()
 		return s
+
+	def needAddop(self):
+		return True
+
+	def undoSplit(self,addop,op):
+		self.split=False
+		gopnum[0]=op
+		self.opnum=0
+		self.usedcon=None
 
 class AtomTT(Atom,ExpressionTT):
 	def __init__(self,name):
@@ -232,6 +290,18 @@ class FOAtomTT(FOAtom,ExpressionTT):
 		if self.split and self.opnum>0 and outside:
 			s+=" "+checkchar+str(self.opnum)
 		return s
+
+	def findSubstitutedConstant(self,expr):
+		if not isinstance(expr,FOAtomTT):
+			return None
+		if len(self.vs)!=len(expr.vs) or len(self.vs)==0:
+			return None
+		for sv,ev in zip(self.vs,expr.vs):
+			if sv.isBound() and not ev.isBound():
+				return ev
+			if not sv.isBound() and ev.isBound():
+				return sv
+		return None
 
 #These actions are created as a tree is made
 #I would like to extend these to allow for undo and redo, also making a tree structure for more complex undo and redo capabilities

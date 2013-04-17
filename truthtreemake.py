@@ -3,40 +3,331 @@ from Tkinter import *
 from tkFont import Font
 
 userpredictions={'Neither':'N','Valid':'V','Invalid':'I'}
+invertuserpredictions={'N':'Neither','V':'Valid','I':'Invalid'}
+constructors={"Conjunction":GeneralizedConjunctionTT,"Negation":NegationTT,"Disjunction":GeneralizedDisjunctionTT,"Conditional":ConditionalTT,"Biconditional":BiconditionalTT,"Atom":AtomTT,"FOAtom":FOAtomTT,"UnBoundConstant":UnBoundConstant,"BoundConstant":BoundConstant,"Universal":UniversalTT,"Existential":ExistentialTT}
+
+#TODO
+#Add a new button so arguements can be entered not from a file
+#Have the save and load buttons work like normal load and save buttons
+#Position is still a little weird
+
+class TreeWindow(Frame):
+	def __init__(self,guiparent,w=500,h=500):
+		self.guiparent=guiparent
+		self.guiparent.geometry(str(w)+"x"+str(h)+"+300+300")
+		self.guiparent.title("Truth Tree")
+		Frame.__init__(self,guiparent,background="#555",border=0)
+		self.pack()
+		self.userprediction='Neither'
+		self.filename=None
+		self.menu=MenuBar(self,w,40)
+		self.menu.pack(fill=BOTH)
+		self.total=TotalTruthTreeMake(self,w,h-40)
+		self.total.pack()
+
+	def save(self,filename=None):
+		if filename==None:
+			filename=self.filename
+		self.filename=filename
+		self.userprediction=self.menu.choice.get()
+		self.total.save(filename)
+
+	def load(self,filename,offset=None):
+		self.filename=self.total.load(filename,offset)
+	
+	def undo(self):
+		if len(self.total.top.actions)==0:
+			print "no actions to undo"
+		else:
+			self.total.undoLastAction()
+
+	def redo(self):
+		if len(self.total.redoactions)==0:
+			print "no actions to redo"
+		else:
+			self.total.applyForwardAction(self.total.redoactions[-1])
+			self.total.redoactions=self.total.redoactions[:-1]
+			self.total.enterNormalState()
+
+class MenuBar(Frame):
+	def __init__(self,guiparent,w,h):
+		self.guiparent=guiparent
+		Frame.__init__(self,guiparent,background="#CCC",width=w,height=h)
+		self.buttonfont=Font(family="Helvetica",size="12")
+		self.font=Font(family="Helvetica",size="16")
+		self.choice=StringVar()
+		self.choice.set(self.guiparent.userprediction)
+		self.menu=None
+		self.buttons=[]
+		self.entries=[]
+		self.addUsualButtons()
+
+	def reset(self):
+		self.removeAllButtons()
+		self.addUsualButtons()
+
+	def addUsualButtons(self):
+		self.makeButton("Save",self.saveEvent,0)
+		self.makeButton("Save as",self.saveAsEvent,1)
+		self.makeButton("Load",self.loadEvent,2)
+		self.makeButton("Undo",self.undoEvent,3)
+		self.makeButton("Redo",self.redoEvent,4)
+		self.addSelectValidityMenu(5)
+
+	def removeAllButtons(self):
+		for b in self.buttons:
+			b.grid_remove()
+		self.buttonts=[]
+		for e in self.entries:
+			e.grid_remove()
+		self.entries=[]
+		if self.menu!=None:
+			self.menu.grid_remove()
+		self.menu=None
+
+	def saveEvent(self,event):
+		if self.guiparent.filename==None:
+			self.removeAllButtons()
+			self.makeButton("Save",self.saveTreeEvent,0)
+			self.makeButton("Cancel",self.cancelEvent,1)
+			self.makeEntry(2)
+			self.addSelectValidityMenu(3)
+		else:
+			self.guiparent.save()
+
+	def saveAsEvent(self,event):
+		self.removeAllButtons()
+		self.makeButton("Save as",self.saveTreeEvent,0)
+		self.makeButton("Cancel",self.cancelEvent,1)
+		self.makeEntry(2)
+		self.addSelectValidityMenu(3)
+
+	def saveTreeEvent(self,event):
+		fname=self.entries[0].get()
+		self.guiparent.save(fname)
+		self.reset()
+
+	def cancelEvent(self,event):
+		self.reset()
+
+	def loadEvent(self,event):
+		self.removeAllButtons()
+		self.makeButton("Load",self.loadTreeEvent,0)
+		self.makeButton("Cancel",self.cancelEvent,1)
+		self.makeEntry(2)
+		self.makeEntry(3,'Offset')
+
+	def loadTreeEvent(self,event):
+		fname=self.entries[0].get()
+		offset=None
+		try:
+			offset=int(self.entries[1].get())
+		except Exception, e:
+			pass
+		self.guiparent.load(fname,offset)
+		self.reset()
+
+	def undoEvent(self,event):
+		self.guiparent.undo()
+
+	def redoEvent(self,event):
+		self.guiparent.redo()
+
+	def makeButton(self,text,event,col):
+		button=ButtonWrapper(self,text,self.buttonfont,75,30)
+		button.grid(row=0,column=col,sticky=W,padx=5)
+		button.bind("<Button-1>",event)
+		self.buttons.append(button)
+
+	def makeEntry(self,col,text=''):
+		entry=EntryWrapper(self,200,34,self.font,text)
+		entry.grid(row=0,column=col,sticky=W,padx=10)
+		self.entries.append(entry)
+
+	def addSelectValidityMenu(self,col):
+		self.choice.set(self.guiparent.userprediction)
+		self.menu=OptionMenu(self, self.choice, *(userpredictions.keys()))
+		self.menu.grid(row=0,column=col,sticky=W,padx=10)
 
 class TotalTruthTreeMake(Canvas):
-	def __init__(self,guiparent,initfile,initoffset=None,w=500,h=500):
+	def __init__(self,guiparent,w=500,h=500):
 		self.guiparent=guiparent
 		self.borderwidth=5
 		self.width=w
 		self.height=h
+		#overall offset from (0,0)
+		self.mx=None
+		self.my=None
+		self.rx=0
+		self.ry=0
+		self.dx=10
+		self.dy=10
 		Canvas.__init__(self, guiparent,background="#333",width=self.width,height=self.height)
-		self.guiparent.geometry(str(self.width)+"x"+str(self.height)+"+300+300")
-		self.userprediction=userpredictions['Neither']
-		self.load(initfile,initoffset)
+		self.stringreader=LogicString(constructors=constructors)
+		self.top=None
 		self.font=Font(family="Helvetica",size="16")
 		self.buttonfont=Font(family="Helvetica",size="12")
 		self.hpadding=40
 		self.wpadding=40
-		
+		self.redoactions=[]
+		self.ids=[]
+		#Functions to allow for moving
+		self.bind("<ButtonPress-1>", self.startMove)
+		self.bind("<ButtonRelease-1>", self.stopMove)
+		self.bind("<B1-Motion>", self.onMotion)
+		self.resetAction()
 		self.initUI()
-		
-	def initUI(self):
-		self.guiparent.title("Truth Tree")
-		self.pack(fill=BOTH, expand=1)
-		self.renderUI()
 
-	def renderUI(self):
+	def startMove(self,event):
+		self.mx=event.x
+		self.my=event.y
+
+	def stopMove(self,event):
+		self.mx=None
+		self.my=None
+
+	def onMotion(self,event):
+		self.dx=event.x-self.mx
+		self.dy=event.y-self.my
+		self.moveLabels()
+		self.rx+=self.dx
+		self.ry+=self.dy
+		self.startMove(event)
+		
+	def moveLabels(self):
+		if self.top==None:
+			return
+		for t in self.ids:
+			self.move(t,self.dx,self.dy)
+		self.moveLines()
+
+	def moveLines(self,t=None):
+		if t==None:
+			t=self.top
+		if t.isLeaf():
+			return
+		self.move(t.rchildline,self.dx,self.dy)
+		self.move(t.lchildline,self.dx,self.dy)
+		self.moveLines(t.rchild)
+		self.moveLines(t.lchild)
+
+	def resetAction(self):
+		self.selectedexprlabel=None
+		self.srctree=None
+		self.srce=None
+		self.dests=[]
+		self.addop=None
+		self.opnum=0
+		self.added=False
+
+	def addAction(self):
+		if len(self.dests)==0 or self.added:
+			return
+		self.opnum=self.srce.userSplit(adop=self.addop)
+		a=AddSplitAction(self.srctree,self.srce,self.dests,self.addop,self.opnum)
+		self.top.addActionToTop(a)
+		gopnum[0]=self.opnum+1
+		self.added=True
+
+	def guessAddop(self,expr):
+		if not self.srce.needAddop() or self.addop!=None:
+			return
+		try:			
+			if self.srce.getOperator()==con.getUnicodeDisjunctionOperator():
+				if expr.getOperator()!=con.getUnicodeDisjunctionOperator():
+					for i,e in enumerate(self.srce.exs):
+						if expr.equals(e):
+							self.addop=[i]
+							print self.addop
+							return
+				else:
+					matched=[False]*len(expr.exs)
+					inds=[]
+					for i,e in enumerate(self.srce.exs):
+						for j,ine in enumerate(expr.exs):
+							if ine.equals(e) and not matched[j]:
+								inds.append(i)
+					print inds
+					self.addop=inds
+					return
+			if self.srce.getOperator()==con.getUnicodeDisjunctionOperator() and self.srce.expr.getOperator()==con.getUnicodeConjunctionOperator():
+				if expr.getOperator()==con.getUnicodeDisjunctionOperator() and expr.getOperator()!=con.getUnicodeConjunctionOperator():
+					for i,e in enumerate(self.srce.expr.exs):
+						if expr.expr.equals(e):
+							self.addop=[i]
+							print self.addop
+							return
+				else:
+					matched=[False]*len(expr.expr.exs)
+					inds=[]
+					for i,e in enumerate(self.srce.expr.exs):
+						for j,ine in enumerate(expr.expr.exs):
+							if ine.equals(e) and not matched[j]:
+								inds.append(i)
+					print inds
+					self.addop=inds
+					return
+			if self.srce.getOperator()==con.getUnicodeUniversalOperator() or self.srce.getOperator()==con.getUnicodeExistentialOperator():
+				constant=self.srce.expr.findSubstitutedConstant(expr)
+				self.addop=constant
+				print constant
+			#Universals
+			#Existentials
+		except Exception, e:
+			print e
+			return
+
+	def initUI(self):
+		self.enterNormalState()
+		
+	def enterNormalState(self):
+		self.ids=[]
+		if self.top==None:
+			return
+		self.top.removeEmptyChildren()
 		ts=self.top.toList()
 		for t in ts:
-			t.updateText()
+			t.normalState()
 		for t in ts:
 			x,y=t.computePosition()
-			t.place(x=x,y=y)
+			self.ids.append(self.create_window((self.rx+x,self.ry+y),window=t,anchor=NW))
 		self.drawLines()
+		self.moveLabels()
+
+	def enterEditState(self):
+		self.ids=[]
+		if self.top==None:
+			return
+		ts=self.top.toList()
+		for t in ts:
+			t.editState()
+		for t in ts:
+			x,y=t.computePosition()
+			self.ids.append(self.create_window((self.rx+x,self.ry+y),window=t,anchor=NW))
+		self.drawLines()
+		self.moveLabels()
+
+	def setSelectedExpression(self,exprlabel):
+		if exprlabel==None:
+			self.addAction()
+		if self.selectedexprlabel!=None:
+			self.addAction()
+			self.selectedexprlabel.noLongerSelected()
+			self.resetAction()
+			self.enterNormalState()
+		self.selectedexprlabel=exprlabel
+		if self.selectedexprlabel!=None:
+			self.srctree=self.selectedexprlabel.guiparent
+			self.srce=self.selectedexprlabel.expr
+			self.enterEditState()
+
+	def addDestEPair(self,e,dest):
+		self.guessAddop(e)
+		self.dests.append((e,dest))
 
 	def intialize(self,argreader=None,actreader=None):
 		if argreader!=None:
+			self.stringreader=LogicString(constructors=constructors,atoms=argreader.atoms,unboundconstants=argreader.unboundconstants)
 			es=list(argreader.expressions)
 			cons=list(argreader.unboundconstants)
 			for e in es[:-1]:
@@ -49,7 +340,8 @@ class TotalTruthTreeMake(Canvas):
 			self.top.expressions.append(conclusion)
 			self.unboundconstants=list(cons)
 		elif actreader!=None:
-			self.userprediction=actreader.result
+			self.stringreader=LogicString(constructors=constructors,atoms=actreader.atoms,unboundconstants=actreader.unboundconstants)
+			self.guiparent.userprediction=invertuserpredictions[actreader.result]
 			ps=actreader.premises
 			for p in ps:
 				p.treesrc=self.top
@@ -66,6 +358,63 @@ class TotalTruthTreeMake(Canvas):
 				self.applyForwardAction(fa)
 		else:
 			raise Exception('None input specified')
+
+	def abortEditState(self):
+		self.selectedexprlabel.noLongerSelected()
+		for e,d in self.dests:
+			d.expressions.remove(e)
+		self.resetAction()
+		self.enterNormalState()
+
+	def undoLastAction(self):
+		if self.selectedexprlabel!=None:
+			self.abortEditState()
+			return
+		a=self.top.actions[-1]
+		self.top.actions=self.top.actions[:-1]
+		if isinstance(a,OpenLeafAction):
+			fa=self.undoOpenLeafAction(a)
+		if isinstance(a,ClosedLeafAction):
+			fa=self.undoClosedLeafAction(a)
+		if isinstance(a,AddSplitAction):
+			fa=self.undoAddSplitAction(a)
+		self.redoactions.append(fa)
+		self.enterNormalState()
+
+	def undoOpenLeafAction(self,a):
+		t=a.tree
+		t.open=False
+		op=t.opnum
+		gopnum[0]=op
+		t.opnum=0
+		return ForwardOpenLeafAction(t.actionString(),op)
+
+	def undoClosedLeafAction(self,a):
+		t=a.tree
+		t.close=False
+		op=t.opnum
+		gopnum[0]=op
+		t.opnum=0
+		return ForwardClosedLeafAction(t.actionString(),op)
+
+	def undoAddSplitAction(self,a):
+		se=a.srce
+		op=a.opnum
+		se.undoSplit(a.addop,op)
+		fadests=[]
+		for e,d in a.dests:
+			d.expressions.remove(e)
+			fadests.append((e,d.actionString()))
+		straddop=""
+		if a.addop==None:
+			straddop="None"
+		elif isinstance(a.addop,list):
+			for v in a.addop:
+				straddop+=str(v)+","
+			straddop=straddop[:-1]
+		else:
+			straddop=a.addop.name
+		return ForwardAddSplitAction(a.srctree.actionString(),se,fadests,op,straddop)
 
 	def applyForwardAction(self,fa):
 		if isinstance(fa,ForwardOpenLeafAction):
@@ -154,38 +503,47 @@ class TotalTruthTreeMake(Canvas):
 		x2=rpx+t.rchild.width/2
 		y2=rpy
 		if t.rchildline==None:
-			t.rchildline=self.create_line(x1,y1,x2,y2,fill="red")
+			t.rchildline=self.create_line(self.rx+x1,self.ry+y1,self.rx+x2,self.ry+y2,fill="red")
 		else:
-			self.coords(t.rchildline,x1,y1,x2,y2)
+			self.coords(t.rchildline,self.rx+x1,self.ry+y1,self.rx+x2,self.ry+y2)
 		x1=px+t.width/2
 		x2=lpx+t.lchild.width/2
 		y2=lpy
 		if t.lchildline==None:
-			t.lchildline=self.create_line(x1,y1,x2,y2,fill="red")
+			t.lchildline=self.create_line(self.rx+x1,self.ry+y1,self.rx+x2,self.ry+y2,fill="red")
 		else:
-			self.coords(t.lchildline,x1,y1,x2,y2)
+			self.coords(t.lchildline,self.rx+x1,self.ry+y1,self.rx+x2,self.ry+y2)
 		self.drawLines(t.rchild)
 		self.drawLines(t.lchild)
 
 	def save(self,fname):
-		writeTreeToFile(self.top,fname,append=False,result=self.userprediction)
+		writeTreeToFile(self.top,fname,append=False,result=userpredictions[self.guiparent.userprediction])
 
 	#Tries to load the file, first by trying if its an action file, then if it is an arguement file
 	def load(self,fname,offset=None):
 		#check if things have been saved before erasing existing tree
+		oldtop=self.top
+		oldopnum=gopnum[0]
+		gopnum[0]=1
 		self.top=TruthTreeMake(total=self,guiparent=self)
 		if offset==None:
 			try:
 				self.loadActionFile(fname)
-				return
+				self.reset(oldtop)
+				self.enterNormalState()
+				return fname
 			except Exception, e:
 				pass
 		try:
 			self.loadArguementFile(fname,offset)
+			self.reset(oldtop)
+			self.enterNormalState()
 			return
 		except Exception, e:
-			raise e
-		#Make this a pop up if you can
+			pass
+		#Make this a pop up
+		self.top=oldtop
+		gopnum[0]=oldopnum
 		print "Invalid File"
 
 	def loadActionFile(self,fname):
@@ -193,12 +551,26 @@ class TotalTruthTreeMake(Canvas):
 		self.intialize(actreader=actionreader)
 
 	def loadArguementFile(self,fname,offset=None):
-		c={"Conjunction":GeneralizedConjunctionTT,"Negation":NegationTT,"Disjunction":GeneralizedDisjunctionTT,"Conditional":ConditionalTT,"Biconditional":BiconditionalTT,"Atom":AtomTT,"FOAtom":FOAtomTT,"UnBoundConstant":UnBoundConstant,"BoundConstant":BoundConstant,"Universal":UniversalTT,"Existential":ExistentialTT}
 		if offset!=None:
-			reader=OffsetLogicReader(fname,offset,c)
+			reader=OffsetLogicReader(fname,offset,constructors)
 		else:
-			reader=LogicReader(fname,c)
+			reader=LogicReader(fname,constructors)
 		self.intialize(argreader=reader)
+
+	def reset(self,top):
+		self.delete(ALL)
+		self.rx=0
+		self.ry=0
+		self.dx=0
+		self.dy=0
+		self.mx=0
+		self.my=0
+		if top==None:
+			return
+		top.place_forget()
+		if not top.isLeaf():
+			self.reset(top.rchild)
+			self.reset(top.lchild)
 
 class TruthTreeMake(TruthTree,Label):
 	def __init__(self,parent=None,ten=False,total=None,guiparent=None):
@@ -210,11 +582,14 @@ class TruthTreeMake(TruthTree,Label):
 		self.height=0
 		self.splitbuttontext="Split"
 		self.position=None
-		self.labels=[]
+		self.labels={}
+		self.buttons=[]
 		self.bound=None
 		self.maxWidth=None
 		self.rchildline=None
 		self.lchildline=None
+		self.endinglabel=None
+		self.textbox=None
 		
 	def getTotal(self):
 		t=self
@@ -223,7 +598,7 @@ class TruthTreeMake(TruthTree,Label):
 		return t.total
 
 	#Adds empty children to the tree section
-	def addChildren(self,ten=False):
+	def addChildren(self,ten=False,):
 		self.rchild=TruthTreeMake(self,ten,guiparent=self.guiparent)
 		self.lchild=TruthTreeMake(self,ten,guiparent=self.guiparent)
 
@@ -232,25 +607,147 @@ class TruthTreeMake(TruthTree,Label):
 			return [self]
 		return [self]+self.rchild.toList()+self.lchild.toList()
 
-	def updateText(self):
+	def normalState(self):
+		self.removeTextbox()
 		self.resetVariables()
+		self.updateText()
+		self.addOpenCloseButtons()
+
+	def removeEmptyChildren(self):
+		if not self.isLeaf():
+			if len(self.rchild.expressions)==0 and len(self.lchild.expressions)==0:
+				self.guiparent.delete(self.rchildline)
+				self.guiparent.delete(self.lchildline)
+				self.rchildline=None
+				self.lchildline=None
+				self.rchild.destroy()
+				self.lchild.destroy()
+				self.rchild=None
+				self.lchild=None
+
+			else:
+				self.rchild.removeEmptyChildren()
+				self.lchild.removeEmptyChildren()
+
+	def editState(self):
+		self.resetVariables()
+		self.updateText()
+		self.addEditButtons()	
+
+	def updateText(self):
 		for i,e in enumerate(self.expressions):
 			w=self.guiparent.font.measure(e.toString(outside=True))
+			self.height+=self.guiparent.font.metrics("linespace")+4
 			if w>self.width:
 				self.width=w
-			l=Label(self,text=e.toString(outside=True),background="white",font=self.guiparent.font)
-			l.grid(row=i,padx=0,pady=0)
-			self.labels.append(l)
+			if not e in self.labels.keys():
+				l=ExpressionLabel(self,e)
+			else:
+				l=self.labels[e]
+				l.updateText()
+			l.grid(row=i,padx=0,pady=0,columnspan=2)
+			self.labels[e]=l
+		if self.isLeaf() and (self.open or self.closed):
+			if self.endinglabel==None:
+				if self.open:
+					t='O '+str(self.opnum)
+				if self.closed:
+					t='X '+str(self.opnum)
+				w=self.guiparent.font.measure(t)
+				self.height+=self.guiparent.font.metrics("linespace")+4
+				l=Label(self,text=t,background='white',font=self.guiparent.font)
+				if w>self.width:
+					self.width=w
+				l.grid(row=len(self.labels),padx=0,pady=0,columnspan=2)
+				self.endinglabel=l
+			else:
+				self.endinglabel.grid(row=len(self.labels),padx=0,pady=0,columnspan=2)
 		self.width+=2*self.guiparent.borderwidth
-		self.addButtons()
+		self.height+=2*self.guiparent.borderwidth
 
-	def addButtons(self):
-		h=0
-		for i,e in enumerate(self.expressions):
-			b=Button(self,text=self.splitbuttontext,font=self.guiparent.buttonfont,width=2,height=1)
-			b.grid(row=i,column=1,padx=0,pady=0,sticky=E)
-		self.width+=self.guiparent.buttonfont.measure(self.splitbuttontext)+4
-		self.height=10+(len(self.expressions))*35
+	def addOpenCloseButtons(self):
+		if self.isLeaf() and not self.open and not self.closed:
+			xw=self.guiparent.buttonfont.measure('X')+10
+			ow=self.guiparent.buttonfont.measure('O')+10
+			h=self.guiparent.buttonfont.metrics("linespace")+10
+			closebutton=ButtonWrapper(self,'X',self.guiparent.buttonfont,xw,h)
+			closebutton.grid(row=len(self.labels),column=0,padx=0,pady=0,)
+			closebutton.bind("<Button-1>",self.closeEvent)
+			openbutton=ButtonWrapper(self,'O',self.guiparent.buttonfont,ow,h)
+			openbutton.grid(row=len(self.labels),column=1,padx=0,pady=0,)
+			openbutton.bind("<Button-1>",self.openEvent)
+			self.buttons=[closebutton,openbutton]
+			w=xw+ow+8
+			if w>self.width:
+				self.width=w
+			self.height+=h+4
+
+	def closeEvent(self,event):
+		self.setClosed()
+		self.guiparent.enterNormalState()
+
+	def openEvent(self,event):
+		self.setOpen()
+		self.guiparent.enterNormalState()
+
+	def addEditButtons(self):
+		if self.isLeaf() and not self.open and not self.closed:
+			w=0
+			r=len(self.labels)
+			if self.textbox!=None:
+				r+=1
+				if 300>self.width:
+					self.width=300
+					self.height+=34
+			c=0
+			childw=0
+			exprw=self.guiparent.buttonfont.measure('Add Expression')+10
+			h=self.guiparent.buttonfont.metrics("linespace")+10
+			if len(self.expressions)>=1:
+				childw=self.guiparent.buttonfont.measure('Add Children')+10
+				addChildrenbutton=ButtonWrapper(self,'Add Children',self.guiparent.buttonfont,childw,h)
+				addChildrenbutton.grid(row=r,column=c,padx=0,pady=0)
+				c+=1
+				addChildrenbutton.bind("<Button-1>",self.addChildrenEvent)
+				self.buttons.append(addChildrenbutton)
+				w+=self.guiparent.buttonfont.measure('Add Children')+14
+			addExpressionbutton=ButtonWrapper(self,'Add Expression',self.guiparent.buttonfont,exprw,h)
+			addExpressionbutton.grid(row=r,column=c,padx=0,pady=0)
+			addExpressionbutton.bind("<Button-1>",self.addExpressionEvent)
+			self.buttons.append(addExpressionbutton)
+			w+=childw+exprw+8
+			if w>self.width:
+				self.width=w
+			self.height+=h+4
+
+	def addExpressionEvent(self,event):
+		if self.textbox==None:
+			self.guiparent.top.removeTextbox()
+			self.textbox=EntryWrapper(self,300,34,self.guiparent.font)
+			self.textbox.grid(row=len(self.labels),columnspan=2,padx=2,pady=2)
+			self.guiparent.enterEditState()
+		else:
+			try:
+				e=self.guiparent.stringreader.parseString(self.textbox.get())
+				self.expressions.append(e)
+				self.guiparent.addDestEPair(e,self)
+				self.guiparent.top.removeTextbox()
+				self.guiparent.enterEditState()
+			except Exception, e:
+				print "Invalid expression"
+			
+	def removeTextbox(self):
+		if not self.isLeaf():
+			self.rchild.removeTextbox()
+			self.lchild.removeTextbox()
+		if self.textbox!=None:
+			self.textbox.grid_remove()
+			self.textbox=None
+
+	def addChildrenEvent(self,event):
+		self.removeTextbox()
+		self.addChildren()
+		self.guiparent.enterEditState()
 
 	def computePosition(self):
 		xmin,xmax=self.getBounds()
@@ -304,14 +801,77 @@ class TruthTreeMake(TruthTree,Label):
 		self.position=None
 		self.bound=None
 		self.maxWidth=None
-		for l in self.labels:
-			l.grid_remove()
-		self.labels=[]
+		for e in self.labels.keys():
+			self.labels[e].grid_remove()
+		for b in self.buttons:
+			b.grid_remove()
+		self.buttons=[]
+		if self.endinglabel!=None:
+			self.endinglabel.grid_remove()
+
+class ExpressionLabel(Label):
+	def __init__(self,parent,expr):
+		self.guiparent=parent
+		self.expr=expr
+		Label.__init__(self,parent,text=self.expr.toString(outside=True),background="white",font=self.guiparent.guiparent.font)
+		if not self.expr.canUserSplit():
+			self.bind("<Button-1>",self.donothing)
+		else:
+			self.bind("<Button-1>",self.pressed)
+		self.selected=False
+
+	def pressed(self,event):
+		if not self.selected:
+			self.guiparent.guiparent.setSelectedExpression(self)
+			self.config(background="Red")
+			self.selected=True
+		else:
+			self.guiparent.guiparent.setSelectedExpression(None)
+			self.config(background="White")
+			self.selected=False
+
+	def noLongerSelected(self):
+		self.config(background="White")
+		self.selected=False
+
+	def donothing(self,event):
+		print "Can't Split"
+
+	def updateText(self):
+		self.config(text=self.expr.toString(outside=True))
+		if not self.expr.canUserSplit():
+			self.bind("<Button-1>",self.donothing)
+
+class EntryWrapper(Frame):
+	def __init__(self,parent,w,h,font=None,text=''):
+		self.guiparent=parent
+		Frame.__init__(self,parent,width=w,height=h,background="blue")
+		
+		self.entry=Entry(self,font=font)
+		self.pack_propagate(False)
+		self.entry.pack(fill=BOTH)
+		self.entry.delete(0, END)
+		self.entry.insert(0, text)
+
+	def get(self):
+		return self.entry.get()
+
+class ButtonWrapper(Frame):
+	def __init__(self,parent,text,font,w,h):
+		self.guiparent=parent
+		Frame.__init__(self,parent,width=w,height=h,background="blue")
+		self.button=Button(self,font=font,text=text)
+		self.pack_propagate(False)
+		self.button.pack(fill=BOTH)
+
+	def bind(self,target,event):
+		self.button.bind(target,event)
 
 def main():
 	root = Tk()
-	tree=TotalTruthTreeMake(root,'out.txt',w=root.winfo_screenwidth()-100,h=root.winfo_screenheight()-100)
-	root.mainloop()  
+	
+	tree=TreeWindow(root,w=900,h=900)
+	root.mainloop()
 
 
 if __name__ == '__main__':

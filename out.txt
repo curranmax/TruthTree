@@ -1,77 +1,34 @@
-I
+V
 P
-@x(A(x)->B(x))
-@x(~A(x)->C(x))
+~#zF(z)
 
 C
-@x(~B(x)->~C(x))
+F(a)->G(a)
 
 A
 Action 1
 Srctree h
-Srce ~@x(~B(x)->~C(x))
+Srce ~#zF(z)
 Srcops None
 Dtree h
-De #x~(~B(x)->~C(x))
+De @z~F(z)
 
 Action 2
 Srctree h
-Srce #x~(~B(x)->~C(x))
+Srce @z~F(z)
 Srcops a
 Dtree h
-De ~(~B(a)->~C(a))
+De ~F(a)
 
 Action 3
 Srctree h
-Srce ~(~B(a)->~C(a))
+Srce ~(F(a)->G(a))
 Srcops None
 Dtree h
-De ~B(a)
+De F(a)
 Dtree h
-De ~~C(a)
+De ~G(a)
 
 Action 4
-Srctree h
-Srce ~~C(a)
-Srcops None
-Dtree h
-De C(a)
-
-Action 5
-Srctree h
-Srce @x(A(x)->B(x))
-Srcops a
-Dtree h
-De A(a)->B(a)
-
-Action 6
-Srctree h
-Srce A(a)->B(a)
-Srcops None
-Dtree hr
-De ~A(a)
-Dtree hl
-De B(a)
-
-Action 7
-Closedtree hl
-
-Action 8
-Srctree h
-Srce @x(~A(x)->C(x))
-Srcops a
-Dtree hr
-De ~A(a)->C(a)
-
-Action 9
-Srctree hr
-Srce ~A(a)->C(a)
-Srcops None
-Dtree hrr
-De ~~A(a)
-Dtree hrl
-De C(a)
-
-Action 10
-Opentree hrl
+Closedtree h
 

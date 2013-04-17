@@ -639,7 +639,6 @@ class FOAtom(Expression):
 				cnew.childatoms.append(self)
 				self.vs[i]=cnew
 
-
 	def equals(self,ex):
 		#incase not a FOAtom
 		try:

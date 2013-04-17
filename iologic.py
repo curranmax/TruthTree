@@ -220,8 +220,10 @@ class LogicReader:
 #Not really necessary, but it just separates the two operations from each other
 #Really inheritance should be flipped, b/c the filereader uses the stringparser, but I wrote the filereader first
 class LogicString(LogicReader):
-	def __init__(self,constructors=None,atoms=[]):
+	def __init__(self,constructors=None,atoms=[],unboundconstants=[]):
 		self.atoms=atoms
+		self.unboundconstants=unboundconstants
+		self.boundencounetered=[]
 		if constructors==None:
 			self.constructors={"Conjunction":GeneralizedConjunction,"Negation":Negation,"Disjunction":GeneralizedDisjunction,"Conditional":Conditional,"Biconditional":Biconditional,"Atom":Atom}
 		else:

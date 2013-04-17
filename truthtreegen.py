@@ -15,10 +15,10 @@ class ExpressionGenTT(ExpressionTT):
 				return [[]]
 			self.tensplit=self.doneSplitting(ten)
 			return self.ttevaluate(ten,addoptions)
-		op=self.setOpnum()			
 		if self.split:
 			return [[]]
 		self.split=self.doneSplitting(ten)
+		op=self.setOpnum()
 		if getOpnum:
 			return (self.ttevaluate(ten,addoptions),op)
 		return self.ttevaluate(ten,addoptions)
@@ -35,6 +35,7 @@ class ExpressionGenTT(ExpressionTT):
 		return True
 
 	def setOpnum(self):
+		print "a"
 		self.opnum=gopnum[0]
 		gopnum[0]+=1
 		return self.opnum
@@ -289,7 +290,7 @@ class FOAtomGenTT(FOAtomTT,ExpressionGenTT):
 
 
 class TotalTruthTree:
-	def __init__(self,fname=None,maxiters=100):
+	def __init__(self,fname=None,maxiters=50):
 		self.maxiters=maxiters
 		self.top=TruthTreeGen(maxiters=self.maxiters)
 		self.top.total=self
@@ -529,8 +530,8 @@ class TruthTreeGen(TruthTree):
 			return bestchoices[0]
 		#Only ever split universals when there is nothing left
 		else:
-			mincons=min([len(ps.usedcons) for (ps,src,addop) in universalbestchoices])
-			return [(ps,src,addop) for (ps,src,addop) in universalbestchoices if len(ps.usedcons)==mincons][0]
+			mincons=min([(len(ps.usedcons),addop.name) for (ps,src,addop) in universalbestchoices])
+			return [(ps,src,addop) for (ps,src,addop) in universalbestchoices if len(ps.usedcons)==mincons[0] and addop.name==mincons[1]][0]
 
 	def getTotal(self):
 		p=self
@@ -626,15 +627,6 @@ class TruthTreeGen(TruthTree):
 				d2=self.lchild.addSplit(copyListOfExpressions(nes),ten)
 			if not ten:
 				return d1+d2
-
-	#gets all expressions that can be split and the tree sections they are in
-	def getPossibleSplits(self):
-		if self.closed or self.open:
-			return []
-		possplits=[(e,self) for e in self.expressions if e.canSplit()]
-		if self.rchild!=None:
-			possplits+=self.rchild.getPossibleSplits()+self.lchild.getPossibleSplits()
-		return possplits
 
 	#Returns a list of all Truth Tree atoms that are reachable form a tree section
 	def getAllReachableAtoms(self):

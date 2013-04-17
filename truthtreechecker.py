@@ -7,12 +7,14 @@ class TotalCheckTree(TotalTruthTree):
 		self.top=TruthTreeCheck(total=self)
 		self.setPsandC(self.reader.premises+[self.reader.conclusion],self.reader.unboundconstants)
 		self.usedunboundconstants=self.reader.unboundconstantsinarguement
+		self.allvalidmoves=True
 		for a in self.reader.factions:
 			if not self.applyForwardAction(a):
-				print "Incorrect Tree"
+				self.allvalidmoves=False
 				break
 		self.printCorrectness(self.reader.result)
-		self.printTree()
+		if self.allvalidmoves:
+			self.printTree()
 
 	def checkAgainstCheckFile(self,cfname,num):
 		checkreader=OffsetLogicReader(cfname,num,{"Conjunction":GeneralizedConjunctionGenTT,"Negation":NegationGenTT,"Disjunction":GeneralizedDisjunctionGenTT,"Conditional":ConditionalGenTT,"Biconditional":BiconditionalGenTT,"Atom":AtomGenTT,"FOAtom":FOAtomGenTT,"UnBoundConstant":UnBoundConstant,"BoundConstant":BoundConstant,"Universal":UniversalGenTT,"Existential":ExistentialGenTT},self.reader.atoms,self.reader.unboundconstants)
@@ -244,13 +246,20 @@ class TotalCheckTree(TotalTruthTree):
 				s="Correctly Predicted arguement to be invalid"
 			elif expected==headers["Neither"]:
 				s="Didn't know but shows invalid"
-		else:
+		elif self.allvalidmoves:
 			if expected==headers["Valid"]:
 				s="Predicted to valid but did not finish"
 			elif expected==headers["Invalid"]:
 				s="Predicted to invalid but did not finish"
 			elif expected==headers["Neither"]:
 				s="Didn't know and didn't finish"
+		else:
+			if expected==headers["Valid"]:
+				s="Predicted to valid but did not construct tree correctly"
+			elif expected==headers["Invalid"]:
+				s="Predicted to invalid but did not construct tree correctly"
+			elif expected==headers["Neither"]:
+				s="Didn't know and did not construct tree correctly"
 		s="| "+s+" |"
 		print "-"*len(s)
 		print s

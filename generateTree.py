@@ -1,3 +1,5 @@
+#! /usr/bin/env python
+
 from truthtreegen import *
 from iologic import MultiLogicReader
 import argparse
@@ -9,7 +11,6 @@ parser.add_argument('-exprnum', metavar='IND', type=int, nargs=1,help='Index for
 
 #Reads in a tree from an arguement file, then calls the run function which automatically splits expressions and then writes the tree to an action file
 
-#NOT WORKING
 ifname=parser.parse_args().ifile[0]
 ofile=None
 exprnum=None
