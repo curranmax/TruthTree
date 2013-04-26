@@ -1,0 +1,60 @@
+//test
+A|B|C|D|E|F|G|H|I
+A
+
+//1) ?
+@x(F(x)->G(x))
+#x~G(x)
+#x~F(x)
+
+//2) ?
+@x(F(x)->@yG(y))
+F(a)
+@xG(x)
+
+//3) ?
+@x(A(x)->B(x))
+@x(~A(x)->C(x))
+@x(~B(x)->~C(x))
+
+//4) ?
+#x(A(x)&~B(x))
+#x(A(x)&~C(x))
+#x(~B(x)&D(x))
+#x(A(x)&~B(x)&D(x))
+
+//5) ?
+@x(A(x)->F(x))
+#xF(x)->~#yG(y)
+@x(#yA(y)->~G(x))
+
+//6) ?
+#x(A(x)|~B(x))
+@x((A(x)&~B(x))->C(x))
+#xC(x)
+
+//7) ?
+@x~F(x,x)
+~@xG(x)->#yF(y,a)
+#z(G(z)&F(z,z))
+
+//9) ?
+#x(F(x)&@y(G(y)->L(x,y)))
+@x(F(x)->@y(M(y)->~L(x,y)))
+@x(G(x)->~M(x))
+
+//10) ?
+F(a)|#yG(y,a)
+F(b)|#y~G(y,b)
+#yG(y,a)
+
+//11) ?
+@x~J(x)
+#y(H(b,y)|R(y,y))->#xJ(x)
+@y~(H(b,y)|R(y,y))
+
+//12) ?
+@z(L(z)<->H(z))
+@x~(H(x)|~B(x))
+~L(b)
+

@@ -1,0 +1,34 @@
+V
+P
+~#zF(z)
+
+C
+F(a)->G(a)
+
+A
+Action 1
+Srctree h
+Srce ~#zF(z)
+Srcops None
+Dtree h
+De @z~F(z)
+
+Action 2
+Srctree h
+Srce @z~F(z)
+Srcops a
+Dtree h
+De ~F(a)
+
+Action 3
+Srctree h
+Srce ~(F(a)->G(a))
+Srcops None
+Dtree h
+De F(a)
+Dtree h
+De ~G(a)
+
+Action 4
+Closedtree h
+

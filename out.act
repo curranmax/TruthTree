@@ -1,0 +1,66 @@
+V
+P
+@x(A(x)->(B(x)&C(x)))
+@x(A(x)->~C(x))
+
+C
+~A(a)
+
+A
+Action 1
+Srctree h
+Srce ~~A(a)
+Srcops None
+Dtree h
+De A(a)
+
+Action 2
+Srctree h
+Srce @x(A(x)->(B(x)&C(x)))
+Srcops a
+Dtree h
+De A(a)->(B(a)&C(a))
+
+Action 3
+Srctree h
+Srce A(a)->(B(a)&C(a))
+Srcops None
+Dtree hl
+De ~A(a)
+Dtree hr
+De B(a)&C(a)
+
+Action 4
+Closedtree hl
+
+Action 5
+Srctree hr
+Srce B(a)&C(a)
+Srcops None
+Dtree hr
+De B(a)
+Dtree hr
+De C(a)
+
+Action 6
+Srctree h
+Srce @x(A(x)->~C(x))
+Srcops a
+Dtree hr
+De A(a)->~C(a)
+
+Action 7
+Srctree hr
+Srce A(a)->~C(a)
+Srcops None
+Dtree hrl
+De ~A(a)
+Dtree hrr
+De ~C(a)
+
+Action 8
+Closedtree hrr
+
+Action 9
+Closedtree hrl
+
