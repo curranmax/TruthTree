@@ -367,8 +367,11 @@ class GeneralizedDisjunction(Expression):
 			for e in exs:
 				if e.getOperator()==self.getOperator():
 					exs.remove(e)
-					exs.append(e.ex1)
-					exs.append(e.ex2)
+					if e.isGeneralized():
+						self.ex+=e.exs
+					else:
+						exs.append(e.ex1)
+						exs.append(e.ex2)				
 					addAll=False
 					break
 			if addAll:

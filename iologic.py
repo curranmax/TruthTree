@@ -232,6 +232,7 @@ class LogicString(LogicReader):
 	def parseString(self,string):
 		return self.findExpression(string)
 
+#Reads in multiple arguments at once
 class MultiLogicReader(LogicReader):
 	def __init__(self,fname,constructors=None,atoms=[]):
 		self.atoms=atoms
@@ -250,12 +251,13 @@ class MultiLogicReader(LogicReader):
 		for line in f:
 			expr=line
 			if expr=="\n":
-				self.expressions.append(t)
-				self.allunboundconstants.append(list(self.unboundconstants))
-				self.unboundconstants=[]
-				self.boundencounetered=[]
-				self.atoms=atoms
-				com=""
+				if len(t)>0:
+					self.expressions.append(t)
+					self.allunboundconstants.append(list(self.unboundconstants))
+					self.unboundconstants=[]
+					self.boundencounetered=[]
+					self.atoms=atoms
+					com=""
 				t=[]
 				continue
 			expr=self.removeComments(expr)
@@ -264,6 +266,7 @@ class MultiLogicReader(LogicReader):
 			t.append(self.findExpression(expr,[]))
 		f.close()
 
+#Reads one argument from a file with a bunch
 class OffsetLogicReader(LogicReader):
 	def __init__(self,fname,offset,constructors=None,atoms=[],unboundconstants=[]):
 		self.atoms=atoms

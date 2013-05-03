@@ -449,11 +449,11 @@ class TruthTree:
 			size=max(size,len(" O "+str(self.opnum)+" "))
 		rsize=0
 		lsize=0
-		if self.rchild!=None:
-			rsize=self.rchild.getToStringSize()
 		if self.lchild!=None:
 			lsize=self.lchild.getToStringSize()
-		size=max(size,rsize+lsize)
+		if self.rchild!=None:
+			rsize=self.rchild.getToStringSize()
+		size=max(size,lsize+rsize)
 		return size
 
 	#Figures out the number of lines to print
@@ -464,14 +464,15 @@ class TruthTree:
 			size+=1
 		if self.open and self.isLeaf():
 			size+=1
-		rsize=0
 		lsize=0
-		if self.rchild!=None:
-			size+=1
-			rsize=self.rchild.getNumLines()
+		rsize=0
 		if self.lchild!=None:
+			size+=1
 			lsize=self.lchild.getNumLines()
-		return size+max(rsize,lsize)
+		if self.rchild!=None:
+			rsize=self.rchild.getNumLines()
+		
+		return size+max(lsize,rsize)
 
 	#Gets a single line(in the form of list of strings), if that is too large then it adds its two children at that line
 	def getLine(self,n):
@@ -482,30 +483,30 @@ class TruthTree:
 		if n==len(self.expressions) and self.open and self.isLeaf():
 			return [" O "+str(self.opnum)+" "]
 		if n>=len(self.expressions)+1:
-			if self.rchild!=None and self.lchild!=None:
-				return [self.rchild.getLine(n-len(self.expressions)-1),self.lchild.getLine(n-len(self.expressions)-1)]
+			if not self.isLeaf():
+				return [self.lchild.getLine(n-len(self.expressions)-1),self.rchild.getLine(n-len(self.expressions)-1)]
 			return []
 		s=[]
 		size=self.getToStringSize()
 		if n>=len(self.expressions):
 			return ""
 		e=self.expressions[n]
-		rs=size/2-len(e.toString(True))/2
-		ls=size-rs-len(e.toString(True))
-		s.append(" "*rs+e.toString(True)+" "*ls)
+		ls=size/2-len(e.toString(True))/2
+		rs=size-ls-len(e.toString(True))
+		s.append(" "*ls+e.toString(True)+" "*rs)
 		return s
 
 	#Produces a nested list of the sizes of lines.  This is used to leave space for sections that finished, but there is still other stuff on the right and left of it
 	def getLineSize(self,n):
 		if n==len(self.expressions) and not self.isLeaf():
-			return [[self.rchild.getToStringSize()],[self.lchild.getToStringSize()]]
+			return [[self.lchild.getToStringSize()],[self.rchild.getToStringSize()]]
 		if n==len(self.expressions) and self.closed and self.isLeaf():
 			return [len(" X "+str(self.opnum)+" ")]
 		if n==len(self.expressions) and self.open and self.isLeaf():
 			return [len(" O "+str(self.opnum)+" ")]
 		if n>=len(self.expressions)+1:
-			if self.rchild!=None and self.lchild!=None:
-				return [self.rchild.getLineSize(n-len(self.expressions)-1),self.lchild.getLineSize(n-len(self.expressions)-1)]
+			if not self.isLeaf():
+				return [self.lchild.getLineSize(n-len(self.expressions)-1),self.rchild.getLineSize(n-len(self.expressions)-1)]
 		return [self.getToStringSize()]
 
 	#Used to translate a tree section into a string that can be written to an action file and the used to get the tree section back

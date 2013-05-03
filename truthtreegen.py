@@ -612,19 +612,19 @@ class TruthTreeGen(TruthTree):
 			else:
 				#Otherwise the expressions must be added to both children
 				#The copying gets rid of any weird things, but the special funtion is used to ensure that all AtomTT's are still consistent
-				d1=self.rchild.addSplit(copyListOfExpressions(nes),ten)
-				d2=self.lchild.addSplit(copyListOfExpressions(nes),ten)
+				d1=self.lchild.addSplit(copyListOfExpressions(nes),ten)
+				d2=self.rchild.addSplit(copyListOfExpressions(nes),ten)
 				if not ten:
 					return d1+d2
 		#Same but when child treees must be made
 		if len(nes)==2:
 			if self.rchild==None and self.lchild==None:
 				self.addChildren(ten)
-				d1=self.rchild.addSplit([nes[0]],ten)
-				d2=self.lchild.addSplit([nes[1]],ten)
+				d1=self.lchild.addSplit([nes[0]],ten)
+				d2=self.rchild.addSplit([nes[1]],ten)
 			else:
-				d1=self.rchild.addSplit(copyListOfExpressions(nes),ten)
-				d2=self.lchild.addSplit(copyListOfExpressions(nes),ten)
+				d1=self.lchild.addSplit(copyListOfExpressions(nes),ten)
+				d2=self.rchild.addSplit(copyListOfExpressions(nes),ten)
 			if not ten:
 				return d1+d2
 

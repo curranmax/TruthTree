@@ -1,6 +1,9 @@
 from truthtreegen import *
 
+#container for the truth tree
 class TotalCheckTree(TotalTruthTree):
+	#Reads in action file, and argument file and compares the two
+	#Then intializes the tree and starts the checking
 	def __init__(self,tfname,cfname,exprnum):
 		self.reader=TruthTreeReader(tfname,constructors={"Conjunction":GeneralizedConjunctionGenTT,"Negation":NegationGenTT,"Disjunction":GeneralizedDisjunctionGenTT,"Conditional":ConditionalGenTT,"Biconditional":BiconditionalGenTT,"Atom":AtomGenTT,"FOAtom":FOAtomGenTT,"UnBoundConstant":UnBoundConstant,"BoundConstant":BoundConstant,"Universal":UniversalGenTT,"Existential":ExistentialGenTT})
 		self.checkAgainstCheckFile(cfname,exprnum)
@@ -16,6 +19,7 @@ class TotalCheckTree(TotalTruthTree):
 		if self.allvalidmoves:
 			self.printTree()
 
+	#Checks to make sure the argument in the action file is the the same as in the argument file
 	def checkAgainstCheckFile(self,cfname,num):
 		checkreader=OffsetLogicReader(cfname,num,{"Conjunction":GeneralizedConjunctionGenTT,"Negation":NegationGenTT,"Disjunction":GeneralizedDisjunctionGenTT,"Conditional":ConditionalGenTT,"Biconditional":BiconditionalGenTT,"Atom":AtomGenTT,"FOAtom":FOAtomGenTT,"UnBoundConstant":UnBoundConstant,"BoundConstant":BoundConstant,"Universal":UniversalGenTT,"Existential":ExistentialGenTT},self.reader.atoms,self.reader.unboundconstants)
 		cexs=list(checkreader.expressions)
@@ -43,6 +47,8 @@ class TotalCheckTree(TotalTruthTree):
 		if len(ccons)>0:
 			raise Exception("4 Arguements don't match")
 
+	#Applies an action from the file
+	#Just checks the type and then passes it to the appropriate function
 	def applyForwardAction(self,fa):
 		if isinstance(fa,ForwardOpenLeafAction):
 			return self.applyForwardOpenLeafAction(fa)
@@ -51,6 +57,8 @@ class TotalCheckTree(TotalTruthTree):
 		if isinstance(fa,ForwardAddSplitAction):
 			return self.applyForwardAddSplitAction(fa)
 
+	#Checks to make sure the tree segment exists and is a leaf
+	#Then checks to make sure it is actually open
 	def applyForwardOpenLeafAction(self,fa):
 		l=self.top.getTreeSection(fa.tree)
 		if l==None:
@@ -64,6 +72,7 @@ class TotalCheckTree(TotalTruthTree):
 			return False
 		return True
 
+	#Same thing as above but wiht closed
 	def applyForwardClosedLeafAction(self,fa):
 		l=self.top.getTreeSection(fa.tree)
 		if l==None:
@@ -77,8 +86,9 @@ class TotalCheckTree(TotalTruthTree):
 			return False
 		return True
 
-	#All that needs to be done
+	#Checks to make sure a split is valid
 	def applyForwardAddSplitAction(self,fa):
+		#Gets the source tree and make sure it exists and contains the source expression
 		asrctree=self.top.getTreeSection(fa.srctree)
 		if asrctree==None:
 			return False
@@ -90,15 +100,21 @@ class TotalCheckTree(TotalTruthTree):
 				break
 		if srce==None:
 			return False
+		#Parses the addop
 		try:
 			adop=self.parseAddOp(fa.addop,srce)
 		except Exception, e:
 			return False
+		#What the split should be
 		sp=srce.ttevaluate(addoptions=adop)
+		#Gets all the leaves that are descendent from the source tree
 		alldests=asrctree.getAddableLeaves()
+		#Makes a dictionary of what expressions where added to what leaves
 		destdict={d:[] for d in alldests}
 		toadd=[]
+		#splits that don't branch
 		if len(sp)==1:
+			#Fills the dictionary with the data from the actoin
 			for e,d in fa.dests:
 				dest=self.top.getTreeSection(d)
 				if dest in destdict:
@@ -106,7 +122,7 @@ class TotalCheckTree(TotalTruthTree):
 				else:
 					return False
 			nume=len(sp[0])
-			
+			#Checks each entry in the dictionary to make sure has a one to one relationship with the theoritical split
 			for k in destdict.keys():
 				if len(destdict[k])!=nume:
 					return False
@@ -124,7 +140,10 @@ class TotalCheckTree(TotalTruthTree):
 					return False
 				for ne in destdict[k]:
 					toadd.append((ne,k))
+		#splits that do branch
 		elif len(sp)==2:
+			#Fills the dictionary
+			#Adds the expressions to the parent, because the children shouldn't exist yet
 			for e,d in fa.dests:
 				dest=self.top.getTreeSection(d[:-1])
 				if dest in destdict:
@@ -133,6 +152,8 @@ class TotalCheckTree(TotalTruthTree):
 					return False
 			nume=len(sp[0])+len(sp[1])
 			toadd=[]
+			#Check to make sure that each entry in the dictionary has a one to one relationship with the theoritical split
+			#Checks that this relatipnship can be divided correclty between the new right and left children
 			for k in destdict.keys():
 				if len(destdict[k])!=nume:
 					return False
@@ -180,6 +201,7 @@ class TotalCheckTree(TotalTruthTree):
 		gcheckopnum=op+1
 		return True
 
+	#parse the text addop
 	def parseAddOp(self,op,e):
 		if e.getOperator()==con.getUnicodeUniversalOperator():
 			if len(self.usedunboundconstants)==0:
@@ -231,6 +253,7 @@ class TotalCheckTree(TotalTruthTree):
 				raise Exception('Invalid options')
 			return None
 
+	#Compares the results of the chekcer with the user's prediction
 	def printCorrectness(self,expected,verbose=True):
 		if self.top.allSetToClosed():
 			if expected==headers["Valid"]:
@@ -265,7 +288,7 @@ class TotalCheckTree(TotalTruthTree):
 		print s
 		print "-"*len(s)
 
-
+#a tree segment
 class TruthTreeCheck(TruthTreeGen):
 	def addUnboundConstants(self,ucon,ten=False):
 		pass
